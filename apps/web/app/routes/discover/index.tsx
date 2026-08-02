@@ -1,13 +1,10 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { DiscoveryFilters } from "~/components/discovery/DiscoveryFilters";
 import { ProfileCard } from "~/components/discovery/ProfileCard";
 import { useDiscoverProfiles, type DiscoverFilters } from "~/lib/queries/useDiscoverProfiles";
-import { useCities } from "~/lib/queries/useCities";
 
 export default function Discover() {
   const [filters, setFilters] = useState<DiscoverFilters>({});
-  const { data: cities } = useCities();
-  const cityNameById = useMemo(() => new Map(cities?.map((c) => [c.id, c.name])), [cities]);
 
   const { data, isLoading, isError, error, fetchNextPage, hasNextPage, isFetchingNextPage } =
     useDiscoverProfiles(filters);
@@ -53,7 +50,7 @@ export default function Discover() {
             id={p.id}
             nickname={p.nickname}
             age={p.age}
-            cityName={p.city_id ? cityNameById.get(p.city_id) : undefined}
+            cityName={p.commune_nom ?? undefined}
             relationshipGoal={p.relationship_goal}
             primaryPhotoKey={p.primary_photo_key}
           />

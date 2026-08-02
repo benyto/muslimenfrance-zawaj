@@ -38,7 +38,7 @@ export const profileInputSchema = z.object({
   hasChildren: z.boolean().nullable().optional(),
   wantsChildren: z.string().trim().max(20).nullable().optional(),
 
-  cityId: z.string().uuid().nullable().optional(),
+  communeInseeCode: z.string().trim().min(1).max(10).nullable().optional(),
 
   // Required explicit consent before religion/religiosity (GDPR Art. 9
   // special-category data) can be stored — enforced again by the
@@ -50,7 +50,9 @@ export type ProfileInput = z.infer<typeof profileInputSchema>;
 
 export const searchProfilesFiltersSchema = z.object({
   gender: z.enum(["male", "female"]).optional(),
-  cityId: z.string().uuid().optional(),
+  communeInseeCode: z.string().trim().min(1).max(10).optional(),
+  departmentCode: z.string().trim().min(1).max(5).optional(),
+  regionCode: z.string().trim().min(1).max(5).optional(),
   relationshipGoal: z.string().max(30).optional(),
   minAge: z.number().int().min(18).max(120).optional(),
   maxAge: z.number().int().min(18).max(120).optional(),

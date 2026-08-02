@@ -1,14 +1,7 @@
--- Local dev seed data only. The real `cities` migration (the subset
--- actually referenced by migrated profiles) happens in Phase 10, from the
--- muslimenfrance monolith's `cities` table — this is just enough to
--- develop/test against locally.
-insert into public.cities (name, postal_code, department, region) values
-  ('Paris', '75000', 'Paris', 'Île-de-France'),
-  ('Lyon', '69000', 'Rhône', 'Auvergne-Rhône-Alpes'),
-  ('Marseille', '13000', 'Bouches-du-Rhône', 'Provence-Alpes-Côte d''Azur'),
-  ('Lille', '59000', 'Nord', 'Hauts-de-France'),
-  ('Toulouse', '31000', 'Haute-Garonne', 'Occitanie')
-on conflict do nothing;
+-- communes_fr/regions/departments are seeded directly in migration
+-- 20260802140000_communes_fr.sql (regions/departments from
+-- data/regions-departements.json) and by importing the ~34,900-row
+-- communes_fr dataset — not reproduced here for local dev.
 
 -- Disabled until Stripe products actually exist — flip `enabled` and fill
 -- in stripe_product_id/stripe_price_id once the Stripe account is set up

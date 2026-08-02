@@ -5,7 +5,9 @@ const PAGE_SIZE = 24;
 
 export type DiscoverFilters = {
   gender?: "male" | "female";
-  cityId?: string;
+  communeInseeCode?: string;
+  departmentCode?: string;
+  regionCode?: string;
   relationshipGoal?: string;
   minAge?: number;
   maxAge?: number;
@@ -18,7 +20,9 @@ export function useDiscoverProfiles(filters: DiscoverFilters) {
     queryFn: async ({ pageParam }) => {
       const { data, error } = await supabase.rpc("search_profiles", {
         p_gender: filters.gender ?? undefined,
-        p_city_id: filters.cityId ?? undefined,
+        p_commune_insee_code: filters.communeInseeCode ?? undefined,
+        p_department_code: filters.departmentCode ?? undefined,
+        p_region_code: filters.regionCode ?? undefined,
         p_relationship_goal: filters.relationshipGoal ?? undefined,
         p_min_age: filters.minAge ?? undefined,
         p_max_age: filters.maxAge ?? undefined,

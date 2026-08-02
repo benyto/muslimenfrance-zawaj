@@ -64,6 +64,12 @@ export default function ProfileDetail() {
         <h1 className="text-xl font-semibold">
           {profile.nickname}, {profile.age}
         </h1>
+        {profile.commune_nom && (
+          <p className="mt-0.5 text-sm text-neutral-500 dark:text-neutral-400">
+            {profile.commune_nom}
+            {profile.department_name ? `, ${profile.department_name}` : ""}
+          </p>
+        )}
         {profile.relationship_goal && (
           <span className="mt-1 inline-block rounded-full bg-brand-rose-50 px-2 py-0.5 text-xs text-brand-rose-600 dark:bg-neutral-800 dark:text-brand-rose-400">
             {relationshipGoalLabels[profile.relationship_goal] ?? profile.relationship_goal}

@@ -27,7 +27,7 @@ function toRow(input: ProfileInput) {
     drinker: input.drinker ?? null,
     has_children: input.hasChildren ?? null,
     wants_children: input.wantsChildren ?? null,
-    city_id: input.cityId ?? null,
+    commune_insee_code: input.communeInseeCode ?? null,
     special_category_consent: input.specialCategoryConsent,
   };
 }

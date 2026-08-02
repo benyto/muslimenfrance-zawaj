@@ -29,10 +29,10 @@ import {
   wantsChildrenOptions,
   wantsChildrenLabels,
 } from "@rencontre/shared";
-import { useCities } from "~/lib/queries/useCities";
 import { useMyProfile } from "~/lib/queries/useMyProfile";
 import { useUpsertProfile } from "~/lib/queries/useUpsertProfile";
 import { TagInput } from "./TagInput";
+import { CommuneAutocomplete } from "./CommuneAutocomplete";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -72,7 +72,6 @@ function optionEntries(options: readonly string[], labels: Record<string, string
 
 export function ProfileForm() {
   const { data: profile, isLoading: profileLoading } = useMyProfile();
-  const { data: cities } = useCities();
   const upsert = useUpsertProfile();
 
   const {
@@ -116,7 +115,7 @@ export function ProfileForm() {
       drinker: profile.drinker ?? undefined,
       hasChildren: profile.has_children ?? undefined,
       wantsChildren: profile.wants_children ?? undefined,
-      cityId: profile.city_id ?? undefined,
+      communeInseeCode: profile.commune_insee_code ?? undefined,
       specialCategoryConsent: (profile.special_category_consent ?? false) as ProfileInput["specialCategoryConsent"],
     } as unknown as ProfileInput);
   }, [profile, reset]);
@@ -146,15 +145,14 @@ export function ProfileForm() {
         <Field label="Date de naissance" error={errors.birthdate?.message}>
           <input type="date" {...register("birthdate")} className={inputClass} />
         </Field>
-        <Field label="Ville" error={errors.cityId?.message}>
-          <select {...register("cityId")} className={inputClass}>
-            <option value="">Sélectionner</option>
-            {cities?.map((city) => (
-              <option key={city.id} value={city.id}>
-                {city.name}
-              </option>
-            ))}
-          </select>
+        <Field label="Ville" error={errors.communeInseeCode?.message}>
+          <Controller
+            name="communeInseeCode"
+            control={control}
+            render={({ field }) => (
+              <CommuneAutocomplete value={field.value} onChange={field.onChange} />
+            )}
+          />
         </Field>
       </Section>
 

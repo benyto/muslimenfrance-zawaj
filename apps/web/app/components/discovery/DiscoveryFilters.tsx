@@ -4,7 +4,8 @@ import {
   relationshipGoalOptions,
   relationshipGoalLabels,
 } from "@rencontre/shared";
-import { useCities } from "~/lib/queries/useCities";
+import { useDepartments, useRegions } from "~/lib/queries/useGeography";
+import { CommuneAutocomplete } from "~/components/profile/CommuneAutocomplete";
 import type { DiscoverFilters } from "~/lib/queries/useDiscoverProfiles";
 
 const selectClass =
@@ -17,7 +18,11 @@ export function DiscoveryFilters({
   filters: DiscoverFilters;
   onChange: (next: DiscoverFilters) => void;
 }) {
-  const { data: cities } = useCities();
+  const { data: regions } = useRegions();
+  const { data: departments } = useDepartments();
+  const departmentOptions = filters.regionCode
+    ? departments?.filter((d) => d.region_code === filters.regionCode)
+    : departments;
 
   return (
     <div className="flex flex-wrap gap-2">
@@ -34,15 +39,38 @@ export function DiscoveryFilters({
         ))}
       </select>
 
+      <div className="w-48">
+        <CommuneAutocomplete
+          value={filters.communeInseeCode}
+          onChange={(code) => onChange({ ...filters, communeInseeCode: code ?? undefined })}
+          placeholder="Ville"
+        />
+      </div>
+
       <select
-        value={filters.cityId ?? ""}
-        onChange={(e) => onChange({ ...filters, cityId: e.target.value || undefined })}
+        value={filters.regionCode ?? ""}
+        onChange={(e) =>
+          onChange({ ...filters, regionCode: e.target.value || undefined, departmentCode: undefined })
+        }
         className={selectClass}
       >
-        <option value="">Ville</option>
-        {cities?.map((city) => (
-          <option key={city.id} value={city.id}>
-            {city.name}
+        <option value="">Région</option>
+        {regions?.map((r) => (
+          <option key={r.code} value={r.code}>
+            {r.name}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={filters.departmentCode ?? ""}
+        onChange={(e) => onChange({ ...filters, departmentCode: e.target.value || undefined })}
+        className={selectClass}
+      >
+        <option value="">Département</option>
+        {departmentOptions?.map((d) => (
+          <option key={d.code} value={d.code}>
+            {d.name}
           </option>
         ))}
       </select>

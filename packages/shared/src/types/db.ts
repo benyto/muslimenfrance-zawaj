@@ -75,33 +75,6 @@ export type Database = {
         }
         Relationships: []
       }
-      cities: {
-        Row: {
-          created_at: string
-          department: string | null
-          id: string
-          name: string
-          postal_code: string | null
-          region: string | null
-        }
-        Insert: {
-          created_at?: string
-          department?: string | null
-          id?: string
-          name: string
-          postal_code?: string | null
-          region?: string | null
-        }
-        Update: {
-          created_at?: string
-          department?: string | null
-          id?: string
-          name?: string
-          postal_code?: string | null
-          region?: string | null
-        }
-        Relationships: []
-      }
       communes_fr: {
         Row: {
           academie_code: string | null
@@ -250,7 +223,15 @@ export type Database = {
           url_wikipedia?: string | null
           zone_emploi?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "communes_fr_dep_code_fkey"
+            columns: ["dep_code"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       conversations: {
         Row: {
@@ -307,6 +288,35 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      departments: {
+        Row: {
+          code: string
+          name: string
+          region_code: string
+          slug: string
+        }
+        Insert: {
+          code: string
+          name: string
+          region_code: string
+          slug: string
+        }
+        Update: {
+          code?: string
+          name?: string
+          region_code?: string
+          slug?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "departments_region_code_fkey"
+            columns: ["region_code"]
+            isOneToOne: false
+            referencedRelation: "regions"
+            referencedColumns: ["code"]
           },
         ]
       }
@@ -437,7 +447,7 @@ export type Database = {
         Row: {
           birthdate: string
           body_type: string | null
-          city_id: string | null
+          commune_insee_code: string | null
           created_at: string
           deleted_at: string | null
           drinker: string | null
@@ -473,7 +483,7 @@ export type Database = {
         Insert: {
           birthdate: string
           body_type?: string | null
-          city_id?: string | null
+          commune_insee_code?: string | null
           created_at?: string
           deleted_at?: string | null
           drinker?: string | null
@@ -509,7 +519,7 @@ export type Database = {
         Update: {
           birthdate?: string
           body_type?: string | null
-          city_id?: string | null
+          commune_insee_code?: string | null
           created_at?: string
           deleted_at?: string | null
           drinker?: string | null
@@ -544,13 +554,31 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "profiles_city_id_fkey"
-            columns: ["city_id"]
+            foreignKeyName: "profiles_commune_insee_code_fkey"
+            columns: ["commune_insee_code"]
             isOneToOne: false
-            referencedRelation: "cities"
-            referencedColumns: ["id"]
+            referencedRelation: "communes_fr"
+            referencedColumns: ["code_insee"]
           },
         ]
+      }
+      regions: {
+        Row: {
+          code: string
+          name: string
+          slug: string
+        }
+        Insert: {
+          code: string
+          name: string
+          slug: string
+        }
+        Update: {
+          code?: string
+          name?: string
+          slug?: string
+        }
+        Relationships: []
       }
       reports: {
         Row: {
@@ -808,7 +836,9 @@ export type Database = {
         Returns: {
           age: number
           body_type: string
-          city_id: string
+          commune_insee_code: string
+          commune_nom: string
+          department_name: string
           drinker: string
           education_level: string
           employment_status: string
@@ -825,6 +855,7 @@ export type Database = {
           nickname: string
           occupation: string
           photo_keys: string[]
+          region_name: string
           relationship_goal: string
           religion: string
           religiosity_level: string
@@ -844,17 +875,20 @@ export type Database = {
       }
       search_profiles: {
         Args: {
-          p_city_id?: string
+          p_commune_insee_code?: string
+          p_department_code?: string
           p_gender?: string
           p_limit?: number
           p_max_age?: number
           p_min_age?: number
           p_offset?: number
+          p_region_code?: string
           p_relationship_goal?: string
         }
         Returns: {
           age: number
-          city_id: string
+          commune_insee_code: string
+          commune_nom: string
           gender: string
           id: string
           nickname: string
