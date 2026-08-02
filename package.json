@@ -1,0 +1,25 @@
+{
+  "name": "rencontre-muslimenfrance",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.22.0"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n web,api -c blue,magenta \"npm:dev -w apps/web\" \"npm:dev -w apps/api\"",
+    "dev:web": "npm run dev -w apps/web",
+    "dev:api": "npm run dev -w apps/api",
+    "build": "npm run build -w apps/web && npm run build -w apps/api",
+    "typecheck": "npm run typecheck -w apps/web && npm run typecheck -w apps/api",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "devDependencies": {
+    "concurrently": "^9",
+    "eslint": "^9",
+    "typescript": "^5.9.3"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "name": "@rencontre/shared",
+  "private": true,
+  "type": "module",
+  "version": "0.0.0",
+  "exports": {
+    ".": "./src/index.ts",
+    "./validation/*": "./src/validation/*.ts",
+    "./types/*": "./src/types/*.ts"
+  },
+  "dependencies": {
+    "zod": "^4"
+  }
+}
