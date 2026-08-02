@@ -84,3 +84,54 @@ export function reportReceivedEmail(params: { nickname: string }) {
     ),
   };
 }
+
+export function profileModeratedEmail(params: { nickname: string; approved: boolean; notes?: string }) {
+  if (params.approved) {
+    return {
+      subject: "Votre profil a été approuvé",
+      html: emailLayout(
+        "Profil approuvé",
+        `<p>Bonjour ${params.nickname},</p>
+         <p>Bonne nouvelle — votre profil a été vérifié et est maintenant visible par les autres membres.</p>`,
+        `${env.SITE_URL}/discover`,
+        "Découvrir des profils"
+      ),
+    };
+  }
+  return {
+    subject: "Votre profil n'a pas été approuvé",
+    html: emailLayout(
+      "Profil non approuvé",
+      `<p>Bonjour ${params.nickname},</p>
+       <p>Votre profil n'a pas pu être approuvé après vérification.</p>
+       ${params.notes ? `<p><strong>Motif :</strong> ${params.notes}</p>` : ""}
+       <p>Vous pouvez modifier votre profil et le soumettre à nouveau.</p>`,
+      `${env.SITE_URL}/profile/me`,
+      "Modifier mon profil"
+    ),
+  };
+}
+
+export function photoRejectedEmail(params: { nickname: string }) {
+  return {
+    subject: "Une de vos photos n'a pas été approuvée",
+    html: emailLayout(
+      "Photo non approuvée",
+      `<p>Bonjour ${params.nickname},</p>
+       <p>L'une de vos photos n'a pas respecté nos règles de contenu et a été refusée. Vous pouvez en ajouter une autre depuis votre profil.</p>`,
+      `${env.SITE_URL}/profile/me`,
+      "Gérer mes photos"
+    ),
+  };
+}
+
+export function reportResolvedEmail() {
+  return {
+    subject: "Votre signalement a été traité",
+    html: emailLayout(
+      "Signalement traité",
+      `<p>Bonjour,</p>
+       <p>Votre signalement a été examiné par notre équipe de modération et a été traité. Merci de contribuer à la sécurité de la communauté.</p>`
+    ),
+  };
+}

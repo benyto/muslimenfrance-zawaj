@@ -10,6 +10,7 @@ import { photoRoutes } from "./routes/photos.js";
 import { messageRoutes } from "./routes/messages.js";
 import { reportRoutes } from "./routes/reports.js";
 import { stripeRoutes, stripeWebhookRoutes } from "./routes/stripe.js";
+import { adminRoutes } from "./routes/admin.js";
 import { uploadRouter } from "./uploadthing/router.js";
 
 // Separated from server.ts (which calls listen()) so tests can build the
@@ -43,10 +44,11 @@ export async function buildApp() {
     router: uploadRouter,
     config: { token: env.UPLOADTHING_TOKEN },
   });
+  await app.register(adminRoutes);
 
-  // Routes for admin moderation, gdpr export/delete, and discover are added
-  // here as their respective phases land (see the project plan's
-  // "Backend / API layer" section for the full route inventory).
+  // Routes for gdpr export/delete and discover are added here as their
+  // respective phases land (see the project plan's "Backend / API layer"
+  // section for the full route inventory).
 
   return app;
 }

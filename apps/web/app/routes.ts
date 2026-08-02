@@ -20,7 +20,14 @@ export default [
       route("settings", "routes/settings/index.tsx"),
 
       layout("lib/auth/RequireAdmin.tsx", [
-        route("admin", "routes/admin/index.tsx"),
+        route("admin", "components/admin/AdminShell.tsx", [
+          index("routes/admin/index.tsx"),
+          route("profiles", "routes/admin/profiles.tsx"),
+          route("photos", "routes/admin/photos.tsx"),
+          route("reports", "routes/admin/reports.tsx"),
+          route("subscriptions", "routes/admin/subscriptions.tsx"),
+          route("audit-log", "routes/admin/audit-log.tsx"),
+        ]),
       ]),
     ]),
   ]),
