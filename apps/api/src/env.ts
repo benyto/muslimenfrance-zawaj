@@ -10,6 +10,12 @@ const envSchema = z.object({
   SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
   SUPABASE_SECRET_KEY: z.string().min(1),
   UPLOADTHING_TOKEN: z.string().min(1),
+  STRIPE_SECRET_KEY: z.string().min(1),
+  STRIPE_WEBHOOK_SECRET: z.string().min(1),
+  // The SPA's own URL — used to build Stripe Checkout/Portal return links.
+  // Same value as CORS_ORIGIN in practice, kept separate since they serve
+  // different purposes (CORS allow-list vs. a URL Stripe redirects users to).
+  SITE_URL: z.string().url(),
 });
 
 // Fails fast on boot with a clear message rather than surfacing a confusing

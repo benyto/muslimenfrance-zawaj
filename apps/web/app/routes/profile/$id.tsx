@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import {
   eyeColorLabels,
   hairColorLabels,
@@ -101,6 +101,12 @@ export default function ProfileDetail() {
       </dl>
 
       <div className="flex flex-wrap gap-3">
+        <Link
+          to={`/messages/${profile.id}`}
+          className="rounded-xl bg-gradient-to-r from-brand-rose-500 to-brand-purple-500 px-4 py-2 text-sm font-medium text-white"
+        >
+          Envoyer un message
+        </Link>
         <button
           type="button"
           onClick={() => {

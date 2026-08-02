@@ -636,6 +636,19 @@ export type Database = {
           nickname: string
         }[]
       }
+      get_my_conversations: {
+        Args: never
+        Returns: {
+          conversation_id: string
+          last_message_at: string
+          last_message_content: string
+          last_message_sender_profile_id: string
+          other_nickname: string
+          other_photo_key: string
+          other_profile_id: string
+          unread_count: number
+        }[]
+      }
       get_my_roles: { Args: never; Returns: string[] }
       get_profile_detail: {
         Args: { p_profile_id: string }
