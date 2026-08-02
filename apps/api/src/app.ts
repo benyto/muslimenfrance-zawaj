@@ -8,6 +8,7 @@ import { authPlugin } from "./plugins/auth.js";
 import { healthRoutes } from "./routes/health.js";
 import { photoRoutes } from "./routes/photos.js";
 import { messageRoutes } from "./routes/messages.js";
+import { reportRoutes } from "./routes/reports.js";
 import { stripeRoutes, stripeWebhookRoutes } from "./routes/stripe.js";
 import { uploadRouter } from "./uploadthing/router.js";
 
@@ -33,6 +34,7 @@ export async function buildApp() {
   await app.register(healthRoutes);
   await app.register(photoRoutes);
   await app.register(messageRoutes);
+  await app.register(reportRoutes);
   await app.register(stripeRoutes);
   // Own encapsulated scope: registers a raw-body content-type parser that
   // must not leak into any other route's normal JSON body parsing.

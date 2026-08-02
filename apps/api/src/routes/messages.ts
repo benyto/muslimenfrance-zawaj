@@ -1,6 +1,54 @@
 import type { FastifyInstance } from "fastify";
 import { sendMessageSchema } from "@rencontre/shared";
 import { supabaseAdmin } from "../lib/supabase-admin.js";
+import { getUserEmail } from "../lib/get-user-email.js";
+import { sendEmail } from "../lib/email/send.js";
+import { newMessageEmail } from "../lib/email/templates.js";
+
+const NOTIFICATION_COOLDOWN_MS = 15 * 60 * 1000;
+
+async function maybeSendNewMessageEmail(params: {
+  conversationId: string;
+  senderNickname: string;
+  recipientProfileId: string;
+  messageContent: string;
+}) {
+  const { data: conversation } = await supabaseAdmin
+    .from("conversations")
+    .select("last_notification_email_sent_at")
+    .eq("id", params.conversationId)
+    .single();
+
+  const lastSent = conversation?.last_notification_email_sent_at
+    ? new Date(conversation.last_notification_email_sent_at).getTime()
+    : 0;
+  if (Date.now() - lastSent < NOTIFICATION_COOLDOWN_MS) {
+    return;
+  }
+
+  const { data: recipientProfile } = await supabaseAdmin
+    .from("profiles")
+    .select("user_id, nickname")
+    .eq("id", params.recipientProfileId)
+    .single();
+  if (!recipientProfile) return;
+
+  const recipientEmail = await getUserEmail(recipientProfile.user_id);
+  if (!recipientEmail) return;
+
+  const preview = params.messageContent.length > 80 ? `${params.messageContent.slice(0, 80)}…` : params.messageContent;
+  const { subject, html } = newMessageEmail({
+    recipientNickname: recipientProfile.nickname,
+    senderNickname: params.senderNickname,
+    preview,
+  });
+  await sendEmail(recipientEmail, { subject, html });
+
+  await supabaseAdmin
+    .from("conversations")
+    .update({ last_notification_email_sent_at: new Date().toISOString() })
+    .eq("id", params.conversationId);
+}
 
 export async function messageRoutes(fastify: FastifyInstance) {
   fastify.post(
@@ -21,7 +69,7 @@ export async function messageRoutes(fastify: FastifyInstance) {
 
       const { data: myProfile, error: myProfileError } = await db
         .from("profiles")
-        .select("id")
+        .select("id, nickname")
         .eq("user_id", request.user!.id)
         .maybeSingle();
       if (myProfileError || !myProfile) {
@@ -107,6 +155,13 @@ export async function messageRoutes(fastify: FastifyInstance) {
         request.log.error(messageError, "Failed to send message");
         return reply.code(500).send({ error: "Échec de l'envoi du message" });
       }
+
+      await maybeSendNewMessageEmail({
+        conversationId,
+        senderNickname: myProfile.nickname,
+        recipientProfileId,
+        messageContent: content,
+      });
 
       return message;
     }

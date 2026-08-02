@@ -102,6 +102,156 @@ export type Database = {
         }
         Relationships: []
       }
+      communes_fr: {
+        Row: {
+          academie_code: string | null
+          academie_nom: string | null
+          altitude_maximale: number | null
+          altitude_minimale: number | null
+          altitude_moyenne: number | null
+          canton_code: string | null
+          canton_nom: string | null
+          code_insee: string
+          code_insee_centre_zone_emploi: string | null
+          code_postal: string | null
+          code_unite_urbaine: string | null
+          codes_postaux: string | null
+          csv_index: number | null
+          densite: number | null
+          dep_code: string | null
+          dep_nom: string | null
+          epci_code: string | null
+          epci_nom: string | null
+          gentile: string | null
+          grille_densite: string | null
+          grille_densite_texte: string | null
+          latitude_centre: number | null
+          latitude_mairie: number | null
+          longitude_centre: number | null
+          longitude_mairie: number | null
+          niveau_equipements_services: number | null
+          niveau_equipements_services_texte: string | null
+          nom_a: string | null
+          nom_de: string | null
+          nom_sans_accent: string | null
+          nom_sans_pronom: string | null
+          nom_standard: string | null
+          nom_standard_majuscule: string | null
+          nom_unite_urbaine: string | null
+          population: number | null
+          reg_code: string | null
+          reg_nom: string | null
+          statut_commune_unite_urbaine: string | null
+          superficie_hectare: number | null
+          superficie_km2: number | null
+          taille_unite_urbaine: number | null
+          type_commune_unite_urbaine: string | null
+          typecom: string | null
+          typecom_texte: string | null
+          url_villedereve: string | null
+          url_wikipedia: string | null
+          zone_emploi: string | null
+        }
+        Insert: {
+          academie_code?: string | null
+          academie_nom?: string | null
+          altitude_maximale?: number | null
+          altitude_minimale?: number | null
+          altitude_moyenne?: number | null
+          canton_code?: string | null
+          canton_nom?: string | null
+          code_insee: string
+          code_insee_centre_zone_emploi?: string | null
+          code_postal?: string | null
+          code_unite_urbaine?: string | null
+          codes_postaux?: string | null
+          csv_index?: number | null
+          densite?: number | null
+          dep_code?: string | null
+          dep_nom?: string | null
+          epci_code?: string | null
+          epci_nom?: string | null
+          gentile?: string | null
+          grille_densite?: string | null
+          grille_densite_texte?: string | null
+          latitude_centre?: number | null
+          latitude_mairie?: number | null
+          longitude_centre?: number | null
+          longitude_mairie?: number | null
+          niveau_equipements_services?: number | null
+          niveau_equipements_services_texte?: string | null
+          nom_a?: string | null
+          nom_de?: string | null
+          nom_sans_accent?: string | null
+          nom_sans_pronom?: string | null
+          nom_standard?: string | null
+          nom_standard_majuscule?: string | null
+          nom_unite_urbaine?: string | null
+          population?: number | null
+          reg_code?: string | null
+          reg_nom?: string | null
+          statut_commune_unite_urbaine?: string | null
+          superficie_hectare?: number | null
+          superficie_km2?: number | null
+          taille_unite_urbaine?: number | null
+          type_commune_unite_urbaine?: string | null
+          typecom?: string | null
+          typecom_texte?: string | null
+          url_villedereve?: string | null
+          url_wikipedia?: string | null
+          zone_emploi?: string | null
+        }
+        Update: {
+          academie_code?: string | null
+          academie_nom?: string | null
+          altitude_maximale?: number | null
+          altitude_minimale?: number | null
+          altitude_moyenne?: number | null
+          canton_code?: string | null
+          canton_nom?: string | null
+          code_insee?: string
+          code_insee_centre_zone_emploi?: string | null
+          code_postal?: string | null
+          code_unite_urbaine?: string | null
+          codes_postaux?: string | null
+          csv_index?: number | null
+          densite?: number | null
+          dep_code?: string | null
+          dep_nom?: string | null
+          epci_code?: string | null
+          epci_nom?: string | null
+          gentile?: string | null
+          grille_densite?: string | null
+          grille_densite_texte?: string | null
+          latitude_centre?: number | null
+          latitude_mairie?: number | null
+          longitude_centre?: number | null
+          longitude_mairie?: number | null
+          niveau_equipements_services?: number | null
+          niveau_equipements_services_texte?: string | null
+          nom_a?: string | null
+          nom_de?: string | null
+          nom_sans_accent?: string | null
+          nom_sans_pronom?: string | null
+          nom_standard?: string | null
+          nom_standard_majuscule?: string | null
+          nom_unite_urbaine?: string | null
+          population?: number | null
+          reg_code?: string | null
+          reg_nom?: string | null
+          statut_commune_unite_urbaine?: string | null
+          superficie_hectare?: number | null
+          superficie_km2?: number | null
+          taille_unite_urbaine?: number | null
+          type_commune_unite_urbaine?: string | null
+          typecom?: string | null
+          typecom_texte?: string | null
+          url_villedereve?: string | null
+          url_wikipedia?: string | null
+          zone_emploi?: string | null
+        }
+        Relationships: []
+      }
       conversations: {
         Row: {
           created_at: string
@@ -109,6 +259,7 @@ export type Database = {
           last_message_at: string
           last_message_content: string | null
           last_message_sender_profile_id: string | null
+          last_notification_email_sent_at: string | null
           profile1_id: string
           profile2_id: string
           updated_at: string
@@ -119,6 +270,7 @@ export type Database = {
           last_message_at?: string
           last_message_content?: string | null
           last_message_sender_profile_id?: string | null
+          last_notification_email_sent_at?: string | null
           profile1_id: string
           profile2_id: string
           updated_at?: string
@@ -129,6 +281,7 @@ export type Database = {
           last_message_at?: string
           last_message_content?: string | null
           last_message_sender_profile_id?: string | null
+          last_notification_email_sent_at?: string | null
           profile1_id?: string
           profile2_id?: string
           updated_at?: string
@@ -710,6 +863,8 @@ export type Database = {
           religion: string
         }[]
       }
+      show_limit: { Args: never; Returns: number }
+      show_trgm: { Args: { "": string }; Returns: string[] }
     }
     Enums: {
       [_ in never]: never

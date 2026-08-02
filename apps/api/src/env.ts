@@ -16,6 +16,10 @@ const envSchema = z.object({
   // Same value as CORS_ORIGIN in practice, kept separate since they serve
   // different purposes (CORS allow-list vs. a URL Stripe redirects users to).
   SITE_URL: z.string().url(),
+  RESEND_API_KEY: z.string().min(1),
+  // Must be on a domain verified in Resend — same one used for Supabase
+  // Auth's SMTP sender (see Phase 0/2 setup).
+  EMAIL_FROM: z.string().min(1).default("Rencontre <notifications@login.muslimenfrance.com>"),
 });
 
 // Fails fast on boot with a clear message rather than surfacing a confusing

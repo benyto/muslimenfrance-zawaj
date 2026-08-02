@@ -3,6 +3,23 @@ import type Stripe from "stripe";
 import { env } from "../env.js";
 import { stripe } from "../lib/stripe.js";
 import { supabaseAdmin } from "../lib/supabase-admin.js";
+import { getUserEmail } from "../lib/get-user-email.js";
+import { sendEmail } from "../lib/email/send.js";
+import {
+  subscriptionStartedEmail,
+  trialEndingSoonEmail,
+  paymentFailedEmail,
+  subscriptionCanceledEmail,
+} from "../lib/email/templates.js";
+
+async function getNicknameAndEmail(userId: string) {
+  const [{ data: profile }, email] = await Promise.all([
+    supabaseAdmin.from("profiles").select("nickname").eq("user_id", userId).maybeSingle(),
+    getUserEmail(userId),
+  ]);
+  if (!profile || !email) return null;
+  return { nickname: profile.nickname, email };
+}
 
 async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
   const userId = subscription.metadata.user_id;
@@ -158,17 +175,46 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
         if (session.subscription) {
           const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
           await upsertSubscriptionFromStripe(subscription);
+
+          const userId = subscription.metadata.user_id;
+          const who = userId ? await getNicknameAndEmail(userId) : null;
+          if (who) {
+            const trialEnd = subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null;
+            const { subject, html } = subscriptionStartedEmail({ nickname: who.nickname, trialEnd });
+            await sendEmail(who.email, { subject, html });
+          }
         }
         break;
       }
-      case "customer.subscription.updated":
-      case "customer.subscription.deleted": {
+      case "customer.subscription.updated": {
         await upsertSubscriptionFromStripe(event.data.object as Stripe.Subscription);
         break;
       }
+      case "customer.subscription.deleted": {
+        const subscription = event.data.object as Stripe.Subscription;
+        await upsertSubscriptionFromStripe(subscription);
+
+        const userId = subscription.metadata.user_id;
+        const who = userId ? await getNicknameAndEmail(userId) : null;
+        if (who) {
+          const { subject, html } = subscriptionCanceledEmail({ nickname: who.nickname });
+          await sendEmail(who.email, { subject, html });
+        }
+        break;
+      }
       case "customer.subscription.trial_will_end": {
-        // Resend notification wired in Phase 7 — Stripe fires this ~3 days
-        // before trial end automatically, no cron needed on our side.
+        // Stripe fires this ~3 days before trial end automatically, no
+        // cron needed on our side.
+        const subscription = event.data.object as Stripe.Subscription;
+        const userId = subscription.metadata.user_id;
+        const who = userId ? await getNicknameAndEmail(userId) : null;
+        if (who && subscription.trial_end) {
+          const { subject, html } = trialEndingSoonEmail({
+            nickname: who.nickname,
+            trialEnd: new Date(subscription.trial_end * 1000).toISOString(),
+          });
+          await sendEmail(who.email, { subject, html });
+        }
         break;
       }
       case "invoice.payment_succeeded":
@@ -182,6 +228,15 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
         if (subscriptionId) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
           await upsertSubscriptionFromStripe(subscription);
+
+          if (event.type === "invoice.payment_failed") {
+            const userId = subscription.metadata.user_id;
+            const who = userId ? await getNicknameAndEmail(userId) : null;
+            if (who) {
+              const { subject, html } = paymentFailedEmail({ nickname: who.nickname });
+              await sendEmail(who.email, { subject, html });
+            }
+          }
         }
         break;
       }
