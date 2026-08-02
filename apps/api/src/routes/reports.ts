@@ -3,15 +3,25 @@ import { createReportSchema } from "@rencontre/shared";
 import { getUserEmail } from "../lib/get-user-email.js";
 import { sendEmail } from "../lib/email/send.js";
 import { reportReceivedEmail } from "../lib/email/templates.js";
+import { userRateLimit } from "../lib/user-rate-limit.js";
 
 export async function reportRoutes(fastify: FastifyInstance) {
   fastify.post(
     "/reports",
-    { preHandler: fastify.requireAuth, config: { rateLimit: { max: 10, timeWindow: "1 hour" } } },
+    {
+      preHandler: [
+        fastify.requireAuth,
+        userRateLimit(fastify, { max: 10, timeWindow: "1 hour" }),
+      ],
+    },
     async (request, reply) => {
       const parsed = createReportSchema.safeParse(request.body);
       if (!parsed.success) {
-        return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "Invalid request" });
+        return reply
+          .code(400)
+          .send({
+            error: parsed.error.issues[0]?.message ?? "Invalid request",
+          });
       }
       const db = request.supabase!;
 
@@ -33,7 +43,9 @@ export async function reportRoutes(fastify: FastifyInstance) {
 
       if (error) {
         request.log.error(error, "Failed to create report");
-        return reply.code(500).send({ error: "Échec de l'envoi du signalement" });
+        return reply
+          .code(500)
+          .send({ error: "Échec de l'envoi du signalement" });
       }
 
       const { data: myProfile } = await db
@@ -43,11 +55,13 @@ export async function reportRoutes(fastify: FastifyInstance) {
         .maybeSingle();
       const email = await getUserEmail(request.user!.id);
       if (myProfile && email) {
-        const { subject, html } = reportReceivedEmail({ nickname: myProfile.nickname });
+        const { subject, html } = reportReceivedEmail({
+          nickname: myProfile.nickname,
+        });
         await sendEmail(email, { subject, html });
       }
 
       return report;
-    }
+    },
   );
 }

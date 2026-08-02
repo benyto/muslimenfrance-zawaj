@@ -1,4 +1,4 @@
-import { useSearchParams } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { useBlockedProfiles, useUnblockProfile } from "~/lib/queries/useBlockActions";
 import {
   useAvailableSubscriptionProduct,
@@ -6,6 +6,8 @@ import {
   useStartCheckout,
   useOpenBillingPortal,
 } from "~/lib/queries/useSubscription";
+import { useExportData, useDeleteAccount } from "~/lib/queries/useGdpr";
+import { supabase } from "~/lib/supabase-client";
 
 function BlockedUsers() {
   const { data: blocked, isLoading } = useBlockedProfiles();
@@ -122,6 +124,60 @@ function SubscriptionSection() {
   );
 }
 
+function PrivacySection() {
+  const navigate = useNavigate();
+  const exportData = useExportData();
+  const deleteAccount = useDeleteAccount();
+
+  async function handleDelete() {
+    if (!confirm("Supprimer définitivement votre compte et toutes vos données ? Cette action est irréversible.")) {
+      return;
+    }
+    deleteAccount.mutate(undefined, {
+      onSuccess: async () => {
+        await supabase.auth.signOut();
+        navigate("/");
+      },
+    });
+  }
+
+  return (
+    <div className="rounded-2xl border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-900">
+      <h2 className="mb-4 text-base font-semibold">Confidentialité et données</h2>
+
+      <div className="flex flex-col gap-3">
+        <div>
+          <button
+            type="button"
+            onClick={() => exportData.mutate()}
+            disabled={exportData.isPending}
+            className="rounded-xl border border-neutral-200 px-5 py-2 text-sm font-medium hover:bg-neutral-50 disabled:opacity-60 dark:border-neutral-800 dark:hover:bg-neutral-800"
+          >
+            {exportData.isPending ? "Export en cours..." : "Exporter mes données"}
+          </button>
+          {exportData.isError && (
+            <p className="mt-2 text-sm text-red-600">{(exportData.error as Error).message}</p>
+          )}
+        </div>
+
+        <div>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleteAccount.isPending}
+            className="rounded-xl border border-red-200 px-5 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-900 dark:hover:bg-red-950"
+          >
+            {deleteAccount.isPending ? "Suppression..." : "Supprimer mon compte"}
+          </button>
+          {deleteAccount.isError && (
+            <p className="mt-2 text-sm text-red-600">{(deleteAccount.error as Error).message}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Settings() {
   return (
     <div className="flex flex-col gap-6">
@@ -130,6 +186,7 @@ export default function Settings() {
       </div>
       <SubscriptionSection />
       <BlockedUsers />
+      <PrivacySection />
     </div>
   );
 }

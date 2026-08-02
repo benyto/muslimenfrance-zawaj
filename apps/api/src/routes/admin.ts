@@ -3,7 +3,11 @@ import { z } from "zod";
 import { supabaseAdmin } from "../lib/supabase-admin.js";
 import { getUserEmail } from "../lib/get-user-email.js";
 import { sendEmail } from "../lib/email/send.js";
-import { profileModeratedEmail, photoRejectedEmail, reportResolvedEmail } from "../lib/email/templates.js";
+import {
+  profileModeratedEmail,
+  photoRejectedEmail,
+  reportResolvedEmail,
+} from "../lib/email/templates.js";
 import type { Database } from "@rencontre/shared";
 
 type Json = Database["public"]["Tables"]["admin_audit_log"]["Insert"]["before"];
@@ -57,6 +61,9 @@ async function writeAuditLog(params: {
 
 export async function adminRoutes(fastify: FastifyInstance) {
   const adminPreHandler = [fastify.requireAuth, fastify.requireAdmin];
+  // Subscription pricing is business-sensitive — restrict to admin, not
+  // moderators (who can still moderate profiles/photos/reports above).
+  const adminOnlyPreHandler = [fastify.requireAuth, fastify.requireAdminOnly];
 
   fastify.post<{ Params: { id: string } }>(
     "/admin/profiles/:id/moderate",
@@ -64,10 +71,16 @@ export async function adminRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const parsed = moderateProfileSchema.safeParse(request.body);
       if (!parsed.success) {
-        return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "Invalid request" });
+        return reply.code(400).send({
+          error: parsed.error.issues[0]?.message ?? "Invalid request",
+        });
       }
 
-      const { data: before } = await supabaseAdmin.from("profiles").select("*").eq("id", request.params.id).maybeSingle();
+      const { data: before } = await supabaseAdmin
+        .from("profiles")
+        .select("*")
+        .eq("id", request.params.id)
+        .maybeSingle();
       if (!before) {
         return reply.code(404).send({ error: "Profil introuvable" });
       }
@@ -98,7 +111,10 @@ export async function adminRoutes(fastify: FastifyInstance) {
         ip: request.ip,
       });
 
-      if (parsed.data.status === "approved" || parsed.data.status === "rejected") {
+      if (
+        parsed.data.status === "approved" ||
+        parsed.data.status === "rejected"
+      ) {
         const email = await getUserEmail(before.user_id);
         if (email) {
           const { subject, html } = profileModeratedEmail({
@@ -111,7 +127,7 @@ export async function adminRoutes(fastify: FastifyInstance) {
       }
 
       return after;
-    }
+    },
   );
 
   fastify.post<{ Params: { id: string } }>(
@@ -120,7 +136,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const parsed = moderatePhotoSchema.safeParse(request.body);
       if (!parsed.success) {
-        return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "Invalid request" });
+        return reply.code(400).send({
+          error: parsed.error.issues[0]?.message ?? "Invalid request",
+        });
       }
 
       const { data: before } = await supabaseAdmin
@@ -157,17 +175,22 @@ export async function adminRoutes(fastify: FastifyInstance) {
         ip: request.ip,
       });
 
-      const profile = before.profiles as { user_id: string; nickname: string } | null;
+      const profile = before.profiles as {
+        user_id: string;
+        nickname: string;
+      } | null;
       if (parsed.data.status === "rejected" && profile) {
         const email = await getUserEmail(profile.user_id);
         if (email) {
-          const { subject, html } = photoRejectedEmail({ nickname: profile.nickname });
+          const { subject, html } = photoRejectedEmail({
+            nickname: profile.nickname,
+          });
           await sendEmail(email, { subject, html });
         }
       }
 
       return after;
-    }
+    },
   );
 
   fastify.post<{ Params: { id: string } }>(
@@ -176,10 +199,16 @@ export async function adminRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const parsed = resolveReportSchema.safeParse(request.body);
       if (!parsed.success) {
-        return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "Invalid request" });
+        return reply.code(400).send({
+          error: parsed.error.issues[0]?.message ?? "Invalid request",
+        });
       }
 
-      const { data: before } = await supabaseAdmin.from("reports").select("*").eq("id", request.params.id).maybeSingle();
+      const { data: before } = await supabaseAdmin
+        .from("reports")
+        .select("*")
+        .eq("id", request.params.id)
+        .maybeSingle();
       if (!before) {
         return reply.code(404).send({ error: "Signalement introuvable" });
       }
@@ -217,53 +246,63 @@ export async function adminRoutes(fastify: FastifyInstance) {
       }
 
       return after;
-    }
+    },
   );
 
-  fastify.post("/admin/subscription-products", { preHandler: adminPreHandler }, async (request, reply) => {
-    const parsed = subscriptionProductSchema.safeParse(request.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "Invalid request" });
-    }
+  fastify.post(
+    "/admin/subscription-products",
+    { preHandler: adminOnlyPreHandler },
+    async (request, reply) => {
+      const parsed = subscriptionProductSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.code(400).send({
+          error: parsed.error.issues[0]?.message ?? "Invalid request",
+        });
+      }
 
-    const { data: after, error } = await supabaseAdmin
-      .from("subscription_products")
-      .insert({
-        audience: parsed.data.audience,
-        name: parsed.data.name,
-        stripe_product_id: parsed.data.stripeProductId ?? null,
-        stripe_price_id: parsed.data.stripePriceId ?? null,
-        price_amount: parsed.data.priceAmount ?? null,
-        currency: parsed.data.currency,
-        interval: parsed.data.interval,
-        trial_period_days: parsed.data.trialPeriodDays,
-        enabled: parsed.data.enabled,
-      })
-      .select()
-      .single();
-    if (error) {
-      return reply.code(400).send({ error: error.message });
-    }
+      const { data: after, error } = await supabaseAdmin
+        .from("subscription_products")
+        .insert({
+          audience: parsed.data.audience,
+          name: parsed.data.name,
+          stripe_product_id: parsed.data.stripeProductId ?? null,
+          stripe_price_id: parsed.data.stripePriceId ?? null,
+          price_amount: parsed.data.priceAmount ?? null,
+          currency: parsed.data.currency,
+          interval: parsed.data.interval,
+          trial_period_days: parsed.data.trialPeriodDays,
+          enabled: parsed.data.enabled,
+        })
+        .select()
+        .single();
+      if (error) {
+        return reply.code(400).send({ error: error.message });
+      }
 
-    await writeAuditLog({
-      adminUserId: request.user!.id,
-      action: "subscription_product_created",
-      targetType: "subscription",
-      targetId: after.id,
-      after,
-      ip: request.ip,
-    });
+      await writeAuditLog({
+        adminUserId: request.user!.id,
+        action: "subscription_product_created",
+        targetType: "subscription",
+        targetId: after.id,
+        after,
+        ip: request.ip,
+      });
 
-    return after;
-  });
+      return after;
+    },
+  );
 
   fastify.patch<{ Params: { id: string } }>(
     "/admin/subscription-products/:id",
-    { preHandler: adminPreHandler },
+    { preHandler: adminOnlyPreHandler },
     async (request, reply) => {
-      const parsed = subscriptionProductSchema.partial().safeParse(request.body);
+      const parsed = subscriptionProductSchema
+        .partial()
+        .safeParse(request.body);
       if (!parsed.success) {
-        return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "Invalid request" });
+        return reply.code(400).send({
+          error: parsed.error.issues[0]?.message ?? "Invalid request",
+        });
       }
 
       const { data: before } = await supabaseAdmin
@@ -275,16 +314,25 @@ export async function adminRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({ error: "Produit introuvable" });
       }
 
-      const updates: Database["public"]["Tables"]["subscription_products"]["Update"] = {};
-      if (parsed.data.audience !== undefined) updates.audience = parsed.data.audience;
+      const updates: Database["public"]["Tables"]["subscription_products"]["Update"] =
+        {};
+      if (parsed.data.audience !== undefined)
+        updates.audience = parsed.data.audience;
       if (parsed.data.name !== undefined) updates.name = parsed.data.name;
-      if (parsed.data.stripeProductId !== undefined) updates.stripe_product_id = parsed.data.stripeProductId;
-      if (parsed.data.stripePriceId !== undefined) updates.stripe_price_id = parsed.data.stripePriceId;
-      if (parsed.data.priceAmount !== undefined) updates.price_amount = parsed.data.priceAmount;
-      if (parsed.data.currency !== undefined) updates.currency = parsed.data.currency;
-      if (parsed.data.interval !== undefined) updates.interval = parsed.data.interval;
-      if (parsed.data.trialPeriodDays !== undefined) updates.trial_period_days = parsed.data.trialPeriodDays;
-      if (parsed.data.enabled !== undefined) updates.enabled = parsed.data.enabled;
+      if (parsed.data.stripeProductId !== undefined)
+        updates.stripe_product_id = parsed.data.stripeProductId;
+      if (parsed.data.stripePriceId !== undefined)
+        updates.stripe_price_id = parsed.data.stripePriceId;
+      if (parsed.data.priceAmount !== undefined)
+        updates.price_amount = parsed.data.priceAmount;
+      if (parsed.data.currency !== undefined)
+        updates.currency = parsed.data.currency;
+      if (parsed.data.interval !== undefined)
+        updates.interval = parsed.data.interval;
+      if (parsed.data.trialPeriodDays !== undefined)
+        updates.trial_period_days = parsed.data.trialPeriodDays;
+      if (parsed.data.enabled !== undefined)
+        updates.enabled = parsed.data.enabled;
 
       const { data: after, error } = await supabaseAdmin
         .from("subscription_products")
@@ -307,6 +355,6 @@ export async function adminRoutes(fastify: FastifyInstance) {
       });
 
       return after;
-    }
+    },
   );
 }

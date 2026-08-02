@@ -9,6 +9,6 @@ export async function healthRoutes(fastify: FastifyInstance) {
   fastify.get(
     "/health/me",
     { preHandler: fastify.requireAuth },
-    async (request) => ({ userId: request.user?.id ?? null })
+    async (request) => ({ userId: request.user?.id ?? null }),
   );
 }

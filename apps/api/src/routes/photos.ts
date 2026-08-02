@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { UTApi } from "uploadthing/server";
 import { supabaseAdmin } from "../lib/supabase-admin.js";
+import { userRateLimit } from "../lib/user-rate-limit.js";
 
 const utapi = new UTApi();
 
@@ -11,7 +12,12 @@ export async function photoRoutes(fastify: FastifyInstance) {
   // the one real path for removing a photo.
   fastify.delete<{ Params: { id: string } }>(
     "/photos/:id",
-    { preHandler: fastify.requireAuth },
+    {
+      preHandler: [
+        fastify.requireAuth,
+        userRateLimit(fastify, { max: 30, timeWindow: "1 minute" }),
+      ],
+    },
     async (request, reply) => {
       const { data: photo, error: fetchError } = await supabaseAdmin
         .from("profile_photos")
@@ -50,6 +56,6 @@ export async function photoRoutes(fastify: FastifyInstance) {
       }
 
       return { success: true };
-    }
+    },
   );
 }

@@ -21,43 +21,88 @@ export const authPlugin = fp(async (fastify: FastifyInstance) => {
   fastify.decorateRequest("accessToken", undefined);
   fastify.decorateRequest("supabase", undefined);
 
-  fastify.decorate("requireAuth", async (request: FastifyRequest, reply: FastifyReply) => {
-    const verified = await verifyBearerToken(request.headers.authorization);
-    if (!verified) {
-      return reply.code(401).send({ error: "Unauthorized" });
-    }
+  fastify.decorate(
+    "requireAuth",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const verified = await verifyBearerToken(request.headers.authorization);
+      if (!verified) {
+        return reply.code(401).send({ error: "Unauthorized" });
+      }
 
-    request.user = verified.user;
-    request.accessToken = verified.token;
-    request.supabase = createRequestClient(verified.token);
-  });
+      request.user = verified.user;
+      request.accessToken = verified.token;
+      request.supabase = createRequestClient(verified.token);
+    },
+  );
 
-  fastify.decorate("requireAdmin", async (request: FastifyRequest, reply: FastifyReply) => {
-    if (!request.user) {
-      return reply.code(401).send({ error: "Unauthorized" });
-    }
+  fastify.decorate(
+    "requireAdmin",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!request.user) {
+        return reply.code(401).send({ error: "Unauthorized" });
+      }
 
-    const { data, error } = await supabaseAdmin
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", request.user.id)
-      .in("role", ["admin", "moderator"])
-      .maybeSingle();
+      const { data, error } = await supabaseAdmin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", request.user.id)
+        .in("role", ["admin", "moderator"])
+        .maybeSingle();
 
-    if (error) {
-      request.log.error(error, "Failed to verify admin role");
-      return reply.code(500).send({ error: "Failed to verify admin access" });
-    }
+      if (error) {
+        request.log.error(error, "Failed to verify admin role");
+        return reply.code(500).send({ error: "Failed to verify admin access" });
+      }
 
-    if (!data) {
-      return reply.code(403).send({ error: "Admin access required" });
-    }
-  });
+      if (!data) {
+        return reply.code(403).send({ error: "Admin access required" });
+      }
+    },
+  );
+
+  // Stricter than requireAdmin: excludes moderators. Reserved for
+  // business-sensitive actions (subscription pricing) that moderation
+  // staff shouldn't be able to change even though they can moderate
+  // profiles/photos/reports.
+  fastify.decorate(
+    "requireAdminOnly",
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      if (!request.user) {
+        return reply.code(401).send({ error: "Unauthorized" });
+      }
+
+      const { data, error } = await supabaseAdmin
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", request.user.id)
+        .eq("role", "admin")
+        .maybeSingle();
+
+      if (error) {
+        request.log.error(error, "Failed to verify admin role");
+        return reply.code(500).send({ error: "Failed to verify admin access" });
+      }
+
+      if (!data) {
+        return reply.code(403).send({ error: "Admin access required" });
+      }
+    },
+  );
 });
 
 declare module "fastify" {
   interface FastifyInstance {
-    requireAuth: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
-    requireAdmin: (request: FastifyRequest, reply: FastifyReply) => Promise<void>;
+    requireAuth: (
+      request: FastifyRequest,
+      reply: FastifyReply,
+    ) => Promise<void>;
+    requireAdmin: (
+      request: FastifyRequest,
+      reply: FastifyReply,
+    ) => Promise<void>;
+    requireAdminOnly: (
+      request: FastifyRequest,
+      reply: FastifyReply,
+    ) => Promise<void>;
   }
 }

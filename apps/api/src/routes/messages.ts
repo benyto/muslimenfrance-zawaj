@@ -4,6 +4,7 @@ import { supabaseAdmin } from "../lib/supabase-admin.js";
 import { getUserEmail } from "../lib/get-user-email.js";
 import { sendEmail } from "../lib/email/send.js";
 import { newMessageEmail } from "../lib/email/templates.js";
+import { userRateLimit } from "../lib/user-rate-limit.js";
 
 const NOTIFICATION_COOLDOWN_MS = 15 * 60 * 1000;
 
@@ -36,7 +37,10 @@ async function maybeSendNewMessageEmail(params: {
   const recipientEmail = await getUserEmail(recipientProfile.user_id);
   if (!recipientEmail) return;
 
-  const preview = params.messageContent.length > 80 ? `${params.messageContent.slice(0, 80)}…` : params.messageContent;
+  const preview =
+    params.messageContent.length > 80
+      ? `${params.messageContent.slice(0, 80)}…`
+      : params.messageContent;
   const { subject, html } = newMessageEmail({
     recipientNickname: recipientProfile.nickname,
     senderNickname: params.senderNickname,
@@ -54,15 +58,21 @@ export async function messageRoutes(fastify: FastifyInstance) {
   fastify.post(
     "/messages",
     {
-      preHandler: fastify.requireAuth,
-      config: {
-        rateLimit: { max: 30, timeWindow: "1 minute" },
-      },
+      preHandler: [
+        fastify.requireAuth,
+        userRateLimit(fastify, { max: 30, timeWindow: "1 minute" }),
+      ],
     },
     async (request, reply) => {
-      const parsed = sendMessageSchema.omit({ conversationId: true }).safeParse(request.body);
+      const parsed = sendMessageSchema
+        .omit({ conversationId: true })
+        .safeParse(request.body);
       if (!parsed.success) {
-        return reply.code(400).send({ error: parsed.error.issues[0]?.message ?? "Invalid request" });
+        return reply
+          .code(400)
+          .send({
+            error: parsed.error.issues[0]?.message ?? "Invalid request",
+          });
       }
       const { recipientProfileId, content } = parsed.data;
       const db = request.supabase!;
@@ -73,10 +83,14 @@ export async function messageRoutes(fastify: FastifyInstance) {
         .eq("user_id", request.user!.id)
         .maybeSingle();
       if (myProfileError || !myProfile) {
-        return reply.code(403).send({ error: "Créez votre profil avant d'envoyer des messages" });
+        return reply
+          .code(403)
+          .send({ error: "Créez votre profil avant d'envoyer des messages" });
       }
       if (myProfile.id === recipientProfileId) {
-        return reply.code(400).send({ error: "Vous ne pouvez pas vous envoyer de message" });
+        return reply
+          .code(400)
+          .send({ error: "Vous ne pouvez pas vous envoyer de message" });
       }
 
       // profiles RLS is owner-only — request.supabase (Amina's own RLS
@@ -84,12 +98,13 @@ export async function messageRoutes(fastify: FastifyInstance) {
       // exists. Checking a message recipient exists/is approved is exactly
       // the kind of privileged cross-user read the API exists to perform,
       // so this one deliberately uses the service-role client.
-      const { data: recipientProfile, error: recipientError } = await supabaseAdmin
-        .from("profiles")
-        .select("id")
-        .eq("id", recipientProfileId)
-        .eq("moderation_status", "approved")
-        .maybeSingle();
+      const { data: recipientProfile, error: recipientError } =
+        await supabaseAdmin
+          .from("profiles")
+          .select("id")
+          .eq("id", recipientProfileId)
+          .eq("moderation_status", "approved")
+          .maybeSingle();
       if (recipientError || !recipientProfile) {
         return reply.code(404).send({ error: "Profil introuvable" });
       }
@@ -99,14 +114,23 @@ export async function messageRoutes(fastify: FastifyInstance) {
         p_profile_b: recipientProfileId,
       });
       if (blocked) {
-        return reply.code(403).send({ error: "Impossible d'envoyer un message à ce profil" });
+        return reply
+          .code(403)
+          .send({ error: "Impossible d'envoyer un message à ce profil" });
       }
 
-      const { data: hasSubscription } = await db.rpc("has_active_dating_subscription", {
-        p_user_id: request.user!.id,
-      });
+      const { data: hasSubscription } = await db.rpc(
+        "has_active_dating_subscription",
+        {
+          p_user_id: request.user!.id,
+        },
+      );
       if (!hasSubscription) {
-        return reply.code(402).send({ error: "Un abonnement actif est requis pour envoyer des messages" });
+        return reply
+          .code(402)
+          .send({
+            error: "Un abonnement actif est requis pour envoyer des messages",
+          });
       }
 
       // conversations' unique constraint is on the exact (profile1_id,
@@ -122,7 +146,7 @@ export async function messageRoutes(fastify: FastifyInstance) {
         .from("conversations")
         .select("id")
         .or(
-          `and(profile1_id.eq.${myProfile.id},profile2_id.eq.${recipientProfileId}),and(profile1_id.eq.${recipientProfileId},profile2_id.eq.${myProfile.id})`
+          `and(profile1_id.eq.${myProfile.id},profile2_id.eq.${recipientProfileId}),and(profile1_id.eq.${recipientProfileId},profile2_id.eq.${myProfile.id})`,
         )
         .maybeSingle();
 
@@ -135,7 +159,9 @@ export async function messageRoutes(fastify: FastifyInstance) {
           .single();
         if (conversationError || !newConversation) {
           request.log.error(conversationError, "Failed to create conversation");
-          return reply.code(500).send({ error: "Échec de la création de la conversation" });
+          return reply
+            .code(500)
+            .send({ error: "Échec de la création de la conversation" });
         }
         conversationId = newConversation.id;
       }
@@ -164,6 +190,6 @@ export async function messageRoutes(fastify: FastifyInstance) {
       });
 
       return message;
-    }
+    },
   );
 }
