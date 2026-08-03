@@ -14,7 +14,7 @@ export default function AdminHome() {
   return (
     <div>
       <h1 className="text-xl font-semibold">Administration</h1>
-      <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">
+      <p className="mt-1 text-sm text-muted">
         Modération, signalements et configuration des abonnements.
       </p>
 
@@ -23,10 +23,10 @@ export default function AdminHome() {
           <Link
             key={card.key}
             to={card.to}
-            className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm transition-shadow hover:shadow-md dark:border-neutral-800 dark:bg-neutral-900"
+            className="rounded-2xl border border-line bg-raised p-4 shadow-sm transition-shadow hover:shadow-md"
           >
             <p className="text-2xl font-semibold">{isLoading ? "…" : counts?.[card.key]}</p>
-            <p className="mt-1 text-sm text-neutral-500 dark:text-neutral-400">{card.label}</p>
+            <p className="mt-1 text-sm text-muted">{card.label}</p>
           </Link>
         ))}
       </div>

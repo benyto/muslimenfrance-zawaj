@@ -10,10 +10,10 @@ const statusFilters = [
 ] as const;
 
 const statusStyles: Record<string, string> = {
-  pending: "bg-amber-50 text-amber-700 dark:bg-neutral-800 dark:text-amber-400",
-  approved: "bg-emerald-50 text-emerald-700 dark:bg-neutral-800 dark:text-emerald-400",
-  rejected: "bg-red-50 text-red-700 dark:bg-neutral-800 dark:text-red-400",
-  disabled: "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400",
+  pending: "bg-warning-soft text-warning",
+  approved: "bg-success-soft text-success",
+  rejected: "bg-danger-soft text-danger",
+  disabled: "bg-sunken text-muted",
 };
 
 export default function AdminProfiles() {
@@ -29,8 +29,8 @@ export default function AdminProfiles() {
             onClick={() => setStatus(f.value)}
             className={`rounded-full px-3 py-1 text-xs font-medium ${
               status === f.value
-                ? "bg-brand-rose-500 text-white"
-                : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
+                ? "bg-primary text-on-primary"
+                : "bg-sunken text-muted"
             }`}
           >
             {f.label}
@@ -39,8 +39,8 @@ export default function AdminProfiles() {
       </div>
 
       <div className="mt-4 flex flex-col gap-3">
-        {isLoading && <p className="text-sm text-neutral-500">Chargement…</p>}
-        {profiles?.length === 0 && <p className="text-sm text-neutral-500">Aucun profil.</p>}
+        {isLoading && <p className="text-sm text-muted">Chargement…</p>}
+        {profiles?.length === 0 && <p className="text-sm text-muted">Aucun profil.</p>}
         {profiles?.map((profile) => <ProfileRow key={profile.id} profile={profile} />)}
       </div>
     </div>
@@ -56,13 +56,13 @@ function ProfileRow({ profile }: { profile: AdminProfileRow }) {
   );
 
   return (
-    <div className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+    <div className="rounded-2xl border border-line p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-medium">
             {profile.nickname}, {age} ans
           </p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          <p className="text-xs text-muted">
             {profile.gender === "male" ? "Homme" : "Femme"} · créé le{" "}
             {new Date(profile.created_at).toLocaleDateString("fr-FR")}
           </p>
@@ -78,20 +78,20 @@ function ProfileRow({ profile }: { profile: AdminProfileRow }) {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Motif (si rejet)"
-            className="rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-sm dark:border-neutral-800 dark:bg-neutral-900"
+            className="rounded-xl border border-line bg-raised px-3 py-1.5 text-sm"
           />
           <div className="flex gap-2">
             <button
               onClick={() => moderate.mutate({ id: profile.id, status: "approved" })}
               disabled={moderate.isPending}
-              className="rounded-xl bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+              className="rounded-xl bg-success px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
             >
               Approuver
             </button>
             <button
               onClick={() => moderate.mutate({ id: profile.id, status: "rejected", notes })}
               disabled={moderate.isPending}
-              className="rounded-xl bg-red-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+              className="rounded-xl bg-danger px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
             >
               Rejeter
             </button>
@@ -103,13 +103,13 @@ function ProfileRow({ profile }: { profile: AdminProfileRow }) {
         <button
           onClick={() => moderate.mutate({ id: profile.id, status: "disabled" })}
           disabled={moderate.isPending}
-          className="mt-3 rounded-xl bg-neutral-800 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60 dark:bg-neutral-700"
+          className="mt-3 rounded-xl bg-ink px-3 py-1.5 text-sm font-medium text-surface disabled:opacity-60"
         >
           Désactiver
         </button>
       )}
 
-      {moderate.isError && <p className="mt-2 text-sm text-red-600">{(moderate.error as Error).message}</p>}
+      {moderate.isError && <p className="mt-2 text-sm text-danger">{(moderate.error as Error).message}</p>}
     </div>
   );
 }

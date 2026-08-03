@@ -32,8 +32,8 @@ export default function AdminReports() {
             onClick={() => setStatus(f.value)}
             className={`rounded-full px-3 py-1 text-xs font-medium ${
               status === f.value
-                ? "bg-brand-rose-500 text-white"
-                : "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400"
+                ? "bg-primary text-on-primary"
+                : "bg-sunken text-muted"
             }`}
           >
             {f.label}
@@ -42,8 +42,8 @@ export default function AdminReports() {
       </div>
 
       <div className="mt-4 flex flex-col gap-3">
-        {isLoading && <p className="text-sm text-neutral-500">Chargement…</p>}
-        {reports?.length === 0 && <p className="text-sm text-neutral-500">Aucun signalement.</p>}
+        {isLoading && <p className="text-sm text-muted">Chargement…</p>}
+        {reports?.length === 0 && <p className="text-sm text-muted">Aucun signalement.</p>}
         {reports?.map((report) => <ReportRow key={report.id} report={report} />)}
       </div>
     </div>
@@ -55,16 +55,16 @@ function ReportRow({ report }: { report: AdminReportRow }) {
   const resolve = useResolveReport();
 
   return (
-    <div className="rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+    <div className="rounded-2xl border border-line p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="font-medium">{reasonLabels[report.reason] ?? report.reason}</p>
-          <p className="text-xs text-neutral-500 dark:text-neutral-400">
+          <p className="text-xs text-muted">
             {report.content_type} · {new Date(report.created_at).toLocaleDateString("fr-FR")}
           </p>
           {report.description && <p className="mt-1 text-sm">{report.description}</p>}
         </div>
-        <span className="shrink-0 rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400">
+        <span className="shrink-0 rounded-full bg-sunken px-2 py-0.5 text-xs text-muted">
           {report.status}
         </span>
       </div>
@@ -75,20 +75,20 @@ function ReportRow({ report }: { report: AdminReportRow }) {
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Notes internes (optionnel)"
-            className="rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-sm dark:border-neutral-800 dark:bg-neutral-900"
+            className="rounded-xl border border-line bg-raised px-3 py-1.5 text-sm"
           />
           <div className="flex gap-2">
             <button
               onClick={() => resolve.mutate({ id: report.id, status: "resolved", adminNotes: notes })}
               disabled={resolve.isPending}
-              className="rounded-xl bg-emerald-600 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
+              className="rounded-xl bg-success px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60"
             >
               Marquer résolu
             </button>
             <button
               onClick={() => resolve.mutate({ id: report.id, status: "dismissed", adminNotes: notes })}
               disabled={resolve.isPending}
-              className="rounded-xl bg-neutral-800 px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60 dark:bg-neutral-700"
+              className="rounded-xl bg-ink px-3 py-1.5 text-sm font-medium text-surface disabled:opacity-60"
             >
               Rejeter
             </button>
@@ -96,7 +96,7 @@ function ReportRow({ report }: { report: AdminReportRow }) {
         </div>
       )}
 
-      {resolve.isError && <p className="mt-2 text-sm text-red-600">{(resolve.error as Error).message}</p>}
+      {resolve.isError && <p className="mt-2 text-sm text-danger">{(resolve.error as Error).message}</p>}
     </div>
   );
 }

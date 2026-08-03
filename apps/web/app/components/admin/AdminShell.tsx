@@ -20,8 +20,8 @@ export default function AdminShell() {
   };
 
   return (
-    <div>
-      <nav className="mb-6 flex flex-wrap gap-1 border-b border-neutral-200 pb-3 dark:border-neutral-800">
+    <div className="mx-auto w-full max-w-3xl">
+      <nav className="mb-6 flex flex-wrap gap-1 border-b border-line pb-3">
         {navItems.map((item) => {
           const badge = badges[item.to];
           return (
@@ -32,14 +32,14 @@ export default function AdminShell() {
               className={({ isActive }) =>
                 `flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium ${
                   isActive
-                    ? "bg-brand-rose-50 text-brand-rose-600 dark:bg-neutral-900"
-                    : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-900"
+                    ? "bg-primary-soft text-primary"
+                    : "text-muted hover:bg-sunken dark:hover:bg-raised"
                 }`
               }
             >
               {item.label}
               {!!badge && (
-                <span className="rounded-full bg-brand-rose-500 px-1.5 text-xs text-white">{badge}</span>
+                <span className="rounded-full bg-primary px-1.5 text-xs text-on-primary">{badge}</span>
               )}
             </NavLink>
           );

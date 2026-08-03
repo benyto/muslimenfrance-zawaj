@@ -1,5 +1,6 @@
 import {
   isRouteErrorResponse,
+  Link,
   Links,
   Meta,
   Outlet,
@@ -9,6 +10,7 @@ import {
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import type { Route } from "./+types/root";
+import { ThemeProvider, themeInitScript } from "./lib/theme";
 import "./app.css";
 
 const queryClient = new QueryClient({
@@ -20,14 +22,37 @@ const queryClient = new QueryClient({
   },
 });
 
+export const meta: Route.MetaFunction = () => [
+  { title: "Rencontre — la communauté muslimenfrance" },
+  {
+    name: "description",
+    content:
+      "Rencontre accompagne les membres de la communauté muslimenfrance vers une union sérieuse, dans le respect et la confiance.",
+  },
+];
+
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr">
+    // suppressHydrationWarning: the inline theme script below sets data-theme
+    // on <html> before hydration, so the attribute legitimately differs from
+    // the pre-rendered markup.
+    <html lang="fr" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        {/* viewport-fit=cover opts into env(safe-area-inset-*), which the chat
+            composer and bottom nav need on notched devices.
+            interactive-widget=resizes-content makes the layout viewport shrink
+            when the mobile keyboard opens, so a sticky composer stays visible
+            instead of being covered. */}
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+        />
+        <meta name="theme-color" content="#faf7f2" media="(prefers-color-scheme: light)" />
+        <meta name="theme-color" content="#0b1f28" media="(prefers-color-scheme: dark)" />
         <Meta />
         <Links />
+        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body>
         {children}
@@ -40,34 +65,44 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <Outlet />
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <Outlet />
+      </QueryClientProvider>
+    </ThemeProvider>
   );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
-  let message = "Oops!";
-  let details = "An unexpected error occurred.";
+  let title = "Une erreur est survenue";
+  let details = "Réessayez dans un instant — si le problème persiste, contactez-nous.";
   let stack: string | undefined;
 
   if (isRouteErrorResponse(error)) {
-    message = error.status === 404 ? "404" : "Error";
-    details =
-      error.status === 404
-        ? "The requested page could not be found."
-        : error.statusText || details;
-  } else if (import.meta.env.DEV && error && error instanceof Error) {
+    if (error.status === 404) {
+      title = "Page introuvable";
+      details = "Cette page n'existe pas ou a été déplacée.";
+    } else {
+      title = `Erreur ${error.status}`;
+      details = error.statusText || details;
+    }
+  } else if (import.meta.env.DEV && error instanceof Error) {
     details = error.message;
     stack = error.stack;
   }
 
   return (
-    <main className="pt-16 p-4 container mx-auto">
-      <h1>{message}</h1>
-      <p>{details}</p>
+    <main className="mx-auto flex min-h-dvh w-full max-w-lg flex-col items-center justify-center px-6 text-center">
+      <h1 className="font-serif text-3xl text-ink">{title}</h1>
+      <p className="mt-3 text-sm text-muted">{details}</p>
+      <Link
+        to="/"
+        className="mt-8 rounded-xl bg-primary px-6 py-3 text-sm font-medium text-on-primary hover:bg-primary-hover"
+      >
+        Retour à l'accueil
+      </Link>
       {stack && (
-        <pre className="w-full p-4 overflow-x-auto">
+        <pre className="mt-8 w-full overflow-x-auto rounded-xl bg-sunken p-4 text-left font-mono text-xs text-muted">
           <code>{stack}</code>
         </pre>
       )}

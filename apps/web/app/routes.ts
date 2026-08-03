@@ -12,9 +12,11 @@ export default [
 
   layout("lib/auth/RequireAuth.tsx", [
     layout("components/layout/AppShell.tsx", [
-      route("discover", "routes/discover/index.tsx"),
-      route("messages", "routes/messages/index.tsx"),
-      route("messages/:profileId", "routes/messages/$profileId.tsx"),
+      layout("components/layout/MessagingWorkspaceLayout.tsx", [
+        route("discover", "routes/discover/index.tsx"),
+        route("messages", "routes/messages/index.tsx"),
+        route("messages/:profileId", "routes/messages/$profileId.tsx"),
+      ]),
       route("profile/me", "routes/profile/me.tsx"),
       route("profile/:id", "routes/profile/$id.tsx"),
       route("settings", "routes/settings/index.tsx"),

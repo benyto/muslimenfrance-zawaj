@@ -1,0 +1,201 @@
+import { useState } from "react";
+import { Link } from "react-router";
+import {
+  eyeColorLabels,
+  hairColorLabels,
+  bodyTypeLabels,
+  educationLevelLabels,
+  employmentStatusLabels,
+  religionLabels,
+  religiosityLevelLabels,
+  relationshipGoalLabels,
+  smokerLabels,
+  drinkerLabels,
+  wantsChildrenLabels,
+} from "@rencontre/shared";
+import { useProfileDetail } from "~/lib/queries/useProfileDetail";
+import { useBlockProfile } from "~/lib/queries/useBlockActions";
+import { photoUrl } from "~/lib/queries/usePhotos";
+import { ReportForm } from "~/components/discovery/ReportForm";
+import { cn } from "~/lib/cn";
+
+function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
+  if (!value) return null;
+  return (
+    <div>
+      <dt className="text-xs text-muted">{label}</dt>
+      <dd className="text-sm">{value}</dd>
+    </div>
+  );
+}
+
+// Shared between the standalone /profile/:id route (mobile / direct
+// navigation), the mobile /discover drill-in — both plain document flow,
+// variant="flow" — and the desktop workspace's persistent right column,
+// variant="panel". The two need genuinely different layouts, not just
+// different classes: "flow" scrolls with the page and pins its actions bar
+// with position:sticky; "panel" lives inside a height-bounded card and
+// splits into a scrolling content region plus a footer that's a true
+// sibling outside that scroll region, never overlapping it. An earlier
+// version tried to make one sticky-in-flow footer work for both by nesting
+// it inside the panel's own max-height + overflow-y-auto box — sticky's
+// offset there is relative to that box's *padding* edge, and profile
+// content scrolling past could still show through at the seam. Splitting
+// scroll region from footer at the layout level removes the ambiguity
+// entirely rather than chasing it with z-index and shadows.
+export function ProfileDetailPanel({
+  profileId,
+  onBlocked,
+  onClose,
+  variant = "flow",
+}: {
+  profileId: string;
+  onBlocked?: () => void;
+  onClose?: () => void;
+  variant?: "flow" | "panel";
+}) {
+  const { data: profile, isLoading, isError, error } = useProfileDetail(profileId);
+  const blockProfile = useBlockProfile();
+  const [showReport, setShowReport] = useState(false);
+
+  if (isLoading) return null;
+
+  if (isError || !profile) {
+    const notFound = (error as Error)?.message === "PROFILE_NOT_FOUND";
+    return (
+      <p className={cn("text-sm text-muted", variant === "panel" && "p-6")}>
+        {notFound ? "Ce profil n'existe pas ou n'est plus disponible." : (error as Error)?.message}
+      </p>
+    );
+  }
+
+  const content = (
+    <div className="flex flex-col gap-6">
+      {onClose && (
+        <button
+          type="button"
+          onClick={onClose}
+          className="inline-flex min-h-11 items-center gap-1.5 self-start rounded-xl pr-3 text-sm font-medium text-muted transition-colors hover:text-ink"
+        >
+          ← Retour
+        </button>
+      )}
+
+      {profile.photo_keys && profile.photo_keys.length > 0 ? (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {profile.photo_keys.map((key) => (
+            <img key={key} src={photoUrl(key)} alt="" className="aspect-square w-full rounded-xl object-cover" />
+          ))}
+        </div>
+      ) : (
+        <div className="flex aspect-video items-center justify-center rounded-xl bg-sunken text-muted">
+          Aucune photo
+        </div>
+      )}
+
+      <div>
+        <h1 className="text-xl font-semibold">
+          {profile.nickname}, {profile.age}
+        </h1>
+        {profile.commune_nom && (
+          <p className="mt-0.5 text-sm text-muted">
+            {profile.commune_nom}
+            {profile.department_name ? `, ${profile.department_name}` : ""}
+          </p>
+        )}
+        {profile.relationship_goal && (
+          <span className="mt-1 inline-block rounded-full bg-primary-soft px-2 py-0.5 text-xs text-primary">
+            {relationshipGoalLabels[profile.relationship_goal] ?? profile.relationship_goal}
+          </span>
+        )}
+      </div>
+
+      {profile.interests && profile.interests.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {profile.interests.map((interest) => (
+            <span key={interest} className="rounded-full bg-sunken px-3 py-1 text-sm">
+              {interest}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <dl className="grid grid-cols-2 gap-4 rounded-2xl border border-line bg-raised p-6">
+        <DetailRow label="Taille" value={profile.height ? `${profile.height} cm` : null} />
+        <DetailRow label="Poids" value={profile.weight ? `${profile.weight} kg` : null} />
+        <DetailRow label="Couleur des yeux" value={profile.eye_color ? eyeColorLabels[profile.eye_color] : null} />
+        <DetailRow label="Couleur des cheveux" value={profile.hair_color ? hairColorLabels[profile.hair_color] : null} />
+        <DetailRow label="Type de corps" value={profile.body_type ? bodyTypeLabels[profile.body_type] : null} />
+        <DetailRow label="Niveau d'éducation" value={profile.education_level ? educationLevelLabels[profile.education_level] : null} />
+        <DetailRow label="Profession" value={profile.occupation} />
+        <DetailRow label="Statut professionnel" value={profile.employment_status ? employmentStatusLabels[profile.employment_status] : null} />
+        <DetailRow label="Ethnie" value={profile.ethnicity} />
+        <DetailRow label="Religion" value={profile.religion ? religionLabels[profile.religion] : null} />
+        <DetailRow label="Niveau de pratique" value={profile.religiosity_level ? religiosityLevelLabels[profile.religiosity_level] : null} />
+        <DetailRow label="Langues parlées" value={profile.languages_spoken?.join(", ")} />
+        <DetailRow label="Fumeur" value={profile.smoker ? smokerLabels[profile.smoker] : null} />
+        <DetailRow label="Consommation d'alcool" value={profile.drinker ? drinkerLabels[profile.drinker] : null} />
+        <DetailRow label="A des enfants" value={profile.has_children === null ? null : profile.has_children ? "Oui" : "Non"} />
+        <DetailRow label="Souhaite des enfants" value={profile.wants_children ? wantsChildrenLabels[profile.wants_children] : null} />
+      </dl>
+
+      {showReport && <ReportForm profileId={profile.id} onDone={() => setShowReport(false)} />}
+    </div>
+  );
+
+  const actionButtons = (
+    <>
+      <Link
+        to={`/messages/${profile.id}`}
+        className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-on-primary"
+      >
+        Contacter
+      </Link>
+      <button
+        type="button"
+        onClick={() => {
+          if (!confirm(`Bloquer ${profile.nickname} ? Vous ne verrez plus son profil.`)) return;
+          blockProfile.mutate(profile.id, { onSuccess: () => onBlocked?.() });
+        }}
+        disabled={blockProfile.isPending}
+        className="rounded-xl border border-line px-4 py-2 text-sm font-medium hover:bg-sunken disabled:opacity-60 dark:hover:bg-sunken"
+      >
+        Bloquer
+      </button>
+      <button
+        type="button"
+        onClick={() => setShowReport((v) => !v)}
+        className="rounded-xl border border-line px-4 py-2 text-sm font-medium hover:bg-sunken dark:hover:bg-sunken"
+      >
+        Signaler
+      </button>
+    </>
+  );
+
+  if (variant === "panel") {
+    // The footer sits outside the scrolling region entirely — a plain flex
+    // sibling, not position:sticky — so there's no scrollport/padding edge
+    // ambiguity left for content to bleed through at.
+    return (
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto p-6">{content}</div>
+        <div className="flex flex-wrap items-center gap-3 border-t border-line bg-raised px-6 py-4">
+          {actionButtons}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      {content}
+      {/* bottom-16 clears the mobile tab bar, which only renders below sm;
+          at sm and up it's hidden so bottom-0 is correct. This variant has
+          no wrapping scrollport with its own padding (the page itself
+          scrolls), so sticky-in-flow is unambiguous here. */}
+      <div className="sticky bottom-16 z-10 flex flex-wrap items-center gap-3 border-t border-line bg-raised py-4 shadow-[0_-8px_12px_-8px_rgb(0_0_0_/_0.12)] sm:bottom-0">
+        {actionButtons}
+      </div>
+    </div>
+  );
+}

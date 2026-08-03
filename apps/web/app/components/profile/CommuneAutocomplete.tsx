@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useCommuneByCode, useCommuneSearch } from "~/lib/queries/useGeography";
 
 const inputClass =
-  "w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-brand-rose-500 dark:border-neutral-800 dark:bg-neutral-900";
+  "w-full rounded-xl border border-line bg-raised px-3 py-2 text-sm outline-none focus:border-primary";
 
 function debounce<T extends (...args: never[]) => void>(fn: T, delay: number) {
   let timer: ReturnType<typeof setTimeout>;
@@ -53,7 +53,7 @@ export function CommuneAutocomplete({
         className={inputClass}
       />
       {open && suggestions && suggestions.length > 0 && (
-        <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-neutral-200 bg-white py-1 shadow-lg dark:border-neutral-800 dark:bg-neutral-900">
+        <ul className="absolute z-20 mt-1 max-h-64 w-full overflow-auto rounded-xl border border-line bg-raised py-1 shadow-lg">
           {suggestions.map((commune) => (
             <li key={commune.code_insee}>
               <button
@@ -64,10 +64,10 @@ export function CommuneAutocomplete({
                   setQuery(`${commune.nom_standard} (${commune.code_postal})`);
                   setOpen(false);
                 }}
-                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                className="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-sunken dark:hover:bg-sunken"
               >
                 <span>{commune.nom_standard}</span>
-                <span className="text-xs text-neutral-400">
+                <span className="text-xs text-muted">
                   {commune.code_postal} · {commune.dep_nom}
                 </span>
               </button>

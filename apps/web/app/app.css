@@ -1,51 +1,244 @@
 @import "tailwindcss";
-@import "@fontsource/instrument-sans/400.css";
-@import "@fontsource/instrument-sans/500.css";
-@import "@fontsource/instrument-sans/600.css";
-@import "@fontsource/instrument-sans/700.css";
+
+/* Display face — used with restraint: names, page titles, the wordmark. */
+@import "@fontsource/instrument-serif/400.css";
+@import "@fontsource/instrument-serif/400-italic.css";
+/* Body/UI — variable, so one file covers every weight (was 4 static imports). */
+@import "@fontsource-variable/instrument-sans/index.css";
+/* Data face — timestamps, ages, counts, prices, admin ids. */
 @import "@fontsource/geist-mono/400.css";
 @import "@fontsource/geist-mono/500.css";
 
-@theme {
-  --font-sans: "Instrument Sans", ui-sans-serif, system-ui, sans-serif,
-    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, monospace;
+/* Dark mode is driven by an explicit [data-theme] attribute, matching
+   muslimenfrance.fr so both apps behave identically. The attribute is set
+   before first paint by the inline script in root.tsx.
+   NOTE: this replaces `&:where(.dark, .dark *)`, which nothing ever set —
+   every dark: utility in the app was dead code until now. */
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-  /* Sister-app accent pair to muslimenfrance.fr's amber/teal — rose + purple,
-     suited to a dating context while keeping the same flat, soft-gradient language. */
-  --color-brand-rose-50: #fff1f2;
-  --color-brand-rose-100: #ffe4e6;
-  --color-brand-rose-400: #fb7185;
-  --color-brand-rose-500: #f43f5e;
-  --color-brand-rose-600: #e11d48;
+/* ---------------------------------------------------------------------
+   Zellige palette.
 
-  --color-brand-purple-50: #faf5ff;
-  --color-brand-purple-100: #f3e8ff;
-  --color-brand-purple-400: #c084fc;
-  --color-brand-purple-500: #a855f7;
-  --color-brand-purple-600: #9333ea;
+   Drawn from Maghrebi tilework rather than dating-app convention: a deep
+   Fez petrol, brass, and terracotta on warm ivory. Kinship with the parent
+   brand is kept through the brass (its amber) and petrol (its teal,
+   deepened) instead of by copying it.
+
+   Every text pairing below is WCAG AA verified against its own surface.
+   Two brass tokens exist on purpose: `accent` (#C8862B) is only 2.85:1 on
+   ivory and is therefore fills/borders/icons ONLY — `accent-ink` (#9A6419,
+   4.67:1) is the one to use for brass-coloured text.
+   --------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  /* Height of a full-height workspace pane (chat thread, sidebars) once the
+     sticky header and main's vertical padding are accounted for. One named
+     value replaces four competing magic numbers that previously described
+     the same chrome: 100dvh-8rem, 100dvh-6rem, 70dvh and 50vh.
+     117px, not a round 7rem: header is 44px content + 24px (py-3) + 1px
+     border = 69px, main adds 24px top + 24px bottom padding = 48px more.
+     7rem (112px) was 5px short, just enough for the page itself to overflow
+     the viewport by a few pixels and grow a second, redundant document
+     scrollbar alongside the chat pane's own internal one. */
+  --pane-h: calc(100dvh - 117px);
+
+  --surface: #faf7f2;
+  --raised: #ffffff;
+  --sunken: #f2ece3;
+
+  --ink: #1c1917;         /* 16.37:1 on surface */
+  --muted: #6b625c;       /*  5.57:1 on surface */
+
+  --line: #e4dacb;        /* decorative edges: cards, dividers */
+  --line-strong: #998566; /* form-control borders, 3.33:1 — WCAG 1.4.11 */
+
+  --primary: #10465a;     /*  9.61:1 on surface */
+  --primary-hover: #0c3648;
+  --primary-soft: #e3edf1;
+  --on-primary: #faf7f2;  /*  9.61:1 on primary */
+
+  --accent: #c8862b;      /* fills / borders / icons — NOT text on light */
+  --accent-ink: #9a6419;  /*  4.67:1 on surface — brass text */
+  --accent-soft: #f7eddc;
+
+  --romantic: #95503a;    /*  5.64:1 on surface */
+  --romantic-soft: #f7e9e4;
+
+  --focus: #9a6419;       /*  4.67:1 — focus ring, WCAG 2.4.11 */
+
+  --danger: #b3261e;
+  --danger-soft: #fbeae8;
+  --success: #1e6a44;
+  --success-soft: #e4f2ea;
+  --warning: #8a5a00;
+  --warning-soft: #fbf0da;
 }
 
-@custom-variant dark (&:where(.dark, .dark *));
+[data-theme="dark"] {
+  color-scheme: dark;
 
-html,
-body {
-  @apply bg-white text-neutral-900;
-  @apply dark:bg-neutral-950 dark:text-neutral-100;
+  --surface: #0b1f28;     /* petrol-tinted near-black, not neutral grey */
+  --raised: #102a35;
+  --sunken: #06171e;
+
+  --ink: #f3efe9;         /* 14.78:1 on surface */
+  --muted: #9aaab2;       /*  7.07:1 on surface */
+
+  --line: #1d3a47;
+  --line-strong: #587b88; /*  3.71:1 on surface */
+
+  --primary: #5fa9c6;     /*  6.43:1 — petrol lifted for a dark ground */
+  --primary-hover: #7cbdd6;
+  --primary-soft: #14323f;
+  --on-primary: #06171e;  /*  6.94:1 on primary */
+
+  --accent: #d9a441;      /*  7.52:1 — brass is legible as text here */
+  --accent-ink: #d9a441;
+  --accent-soft: #2a2113;
+
+  --romantic: #d08a6e;    /*  6.08:1 */
+  --romantic-soft: #2e1d17;
+
+  --focus: #d9a441;       /*  7.52:1 */
+
+  --danger: #f2938c;
+  --danger-soft: #33191a;
+  --success: #6fcf9b;
+  --success-soft: #12291f;
+  --warning: #e0b25c;
+  --warning-soft: #2b2213;
 }
 
-body {
-  background-image:
-    radial-gradient(circle at 15% 10%, color-mix(in srgb, var(--color-brand-rose-500) 8%, transparent), transparent 55%),
-    radial-gradient(circle at 85% 15%, color-mix(in srgb, var(--color-brand-purple-500) 8%, transparent), transparent 55%);
-  background-attachment: fixed;
-  min-height: 100dvh;
+@theme inline {
+  --font-sans: "Instrument Sans Variable", "Instrument Sans", ui-sans-serif,
+    system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
+  --font-serif: "Instrument Serif", ui-serif, Georgia, Cambria, serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Tightened from Tailwind's defaults (xl 12px, 2xl 16px) — cards, bubbles,
+     panels and inputs all lean on these two, and at the default sizes
+     everything reads as uniformly soft/bubbly rather than the crisper,
+     more geometric edge the Zellige direction calls for. */
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.75rem;
+  --radius-3xl: 1rem;
+
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-sunken: var(--sunken);
+
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-soft: var(--primary-soft);
+  --color-on-primary: var(--on-primary);
+
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+
+  --color-romantic: var(--romantic);
+  --color-romantic-soft: var(--romantic-soft);
+
+  --color-focus: var(--focus);
+
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+}
+
+@layer base {
+  html,
+  body {
+    @apply bg-surface text-ink;
+  }
+
+  body {
+    /* Two quiet washes — petrol from the top-left, brass from the top-right.
+       Replaces the rose/purple pair; 6% keeps it atmospheric, not decorative. */
+    background-image:
+      radial-gradient(circle at 12% 8%, color-mix(in srgb, var(--primary) 6%, transparent), transparent 52%),
+      radial-gradient(circle at 88% 12%, color-mix(in srgb, var(--accent) 6%, transparent), transparent 52%);
+    background-attachment: fixed;
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* One visible focus ring for the whole app. Every control previously set
+     `outline-none` with only a border-colour swap, leaving keyboard users
+     with almost no indication of focus across ~40 controls. */
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--accent-soft);
+    color: var(--ink);
+  }
+}
+
+@layer utilities {
+  /* Numerals line up in tables, timestamps and counts. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Motion. Deliberately three entrances and nothing else — Radix unmounts on
+   close, so exit animations would need forceMount for little gain. Defined
+   here rather than pulling in tailwindcss-animate for three keyframes.
+   All of it is disabled by the prefers-reduced-motion block below. */
+@keyframes rc-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes rc-rise {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+
+@keyframes rc-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+
+@utility anim-fade {
+  animation: rc-fade 160ms ease-out;
+}
+
+@utility anim-rise {
+  animation: rc-rise 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@utility anim-slide-in {
+  animation: rc-slide-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

@@ -24,7 +24,7 @@ export default function Verify() {
 
   return (
     <div className="flex min-h-dvh items-center justify-center">
-      <p className="text-sm text-neutral-500">Connexion en cours...</p>
+      <p className="text-sm text-muted">Connexion en cours...</p>
     </div>
   );
 }

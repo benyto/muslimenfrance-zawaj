@@ -7,9 +7,9 @@ import { useDeletePhoto } from "~/lib/queries/useDeletePhoto";
 const MAX_PHOTOS = 10;
 
 const statusLabels: Record<string, { label: string; className: string }> = {
-  pending: { label: "En vérification", className: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400" },
-  approved: { label: "Publiée", className: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400" },
-  rejected: { label: "Refusée", className: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400" },
+  pending: { label: "En vérification", className: "bg-warning-soft text-warning" },
+  approved: { label: "Publiée", className: "bg-success-soft text-success" },
+  rejected: { label: "Refusée", className: "bg-danger-soft text-danger" },
 };
 
 export function PhotoManager({ profileId }: { profileId: string }) {
@@ -45,14 +45,14 @@ export function PhotoManager({ profileId }: { profileId: string }) {
   });
 
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm dark:border-neutral-800 dark:bg-neutral-900">
+    <div className="rounded-2xl border border-line bg-raised p-6 shadow-sm">
       <h3 className="mb-4 text-base font-semibold">Photos</h3>
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {photos?.map((photo) => {
           const status = statusLabels[photo.moderation_status];
           return (
-            <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-xl bg-neutral-100 dark:bg-neutral-800">
+            <div key={photo.id} className="group relative aspect-square overflow-hidden rounded-xl bg-sunken">
               <img src={photoUrl(photo.uploadthing_key)} alt="" className="h-full w-full object-cover" />
               {status && (
                 <span className={`absolute left-1 top-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${status.className}`}>
@@ -77,7 +77,7 @@ export function PhotoManager({ profileId }: { profileId: string }) {
         <div
           {...getRootProps()}
           className={`cursor-pointer rounded-xl border-2 border-dashed p-6 text-center text-sm transition-colors ${
-            isDragActive ? "border-brand-rose-500 bg-brand-rose-50 dark:bg-neutral-800" : "border-neutral-200 dark:border-neutral-700"
+            isDragActive ? "border-primary bg-primary-soft" : "border-line"
           }`}
         >
           <input {...getInputProps()} />
@@ -85,7 +85,7 @@ export function PhotoManager({ profileId }: { profileId: string }) {
         </div>
       )}
 
-      {uploadError && <p className="mt-2 text-sm text-red-600">{uploadError}</p>}
+      {uploadError && <p className="mt-2 text-sm text-danger">{uploadError}</p>}
     </div>
   );
 }

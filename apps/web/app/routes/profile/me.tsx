@@ -3,10 +3,10 @@ import { PhotoManager } from "~/components/profile/PhotoManager";
 import { useMyProfile } from "~/lib/queries/useMyProfile";
 
 const statusLabels: Record<string, { label: string; className: string }> = {
-  pending: { label: "En cours de vérification", className: "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400" },
-  approved: { label: "Profil publié", className: "bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400" },
-  rejected: { label: "Profil refusé", className: "bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400" },
-  disabled: { label: "Profil désactivé", className: "bg-neutral-100 text-neutral-600 dark:bg-neutral-800 dark:text-neutral-400" },
+  pending: { label: "En cours de vérification", className: "bg-warning-soft text-warning" },
+  approved: { label: "Profil publié", className: "bg-success-soft text-success" },
+  rejected: { label: "Profil refusé", className: "bg-danger-soft text-danger" },
+  disabled: { label: "Profil désactivé", className: "bg-sunken text-muted" },
 };
 
 export default function MyProfile() {
@@ -14,7 +14,7 @@ export default function MyProfile() {
   const status = profile ? statusLabels[profile.moderation_status] : null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <div>
         <h1 className="text-xl font-semibold">Mon profil</h1>
         {status && (
@@ -23,7 +23,7 @@ export default function MyProfile() {
           </span>
         )}
         {!profile && (
-          <p className="mt-2 text-sm text-neutral-500 dark:text-neutral-400">
+          <p className="mt-2 text-sm text-muted">
             Complétez votre profil pour commencer — il sera vérifié par notre équipe avant d&apos;être visible par
             les autres membres.
           </p>

@@ -14,3 +14,6 @@ dist/
 supabase/.branches/
 supabase/.temp/
 
+# Data migration intermediate state (contains real user emails/ids)
+scripts/migration/.output/
+

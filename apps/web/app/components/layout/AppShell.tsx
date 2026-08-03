@@ -1,66 +1,135 @@
-import { NavLink, Outlet } from "react-router";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
+import { Compass, LogOut, MessagesSquare, Settings, UserRound } from "lucide-react";
 import { supabase } from "~/lib/supabase-client";
+import { useConversations } from "~/lib/queries/useConversations";
+import { cn } from "~/lib/cn";
+import { StarMark } from "~/components/ui/star";
+import { IconButton } from "~/components/ui/button";
 
 const navItems = [
-  { to: "/discover", label: "Découvrir" },
-  { to: "/messages", label: "Messages" },
-  { to: "/profile/me", label: "Profil" },
-  { to: "/settings", label: "Réglages" },
-];
+  { to: "/discover", label: "Découvrir", icon: Compass },
+  { to: "/messages", label: "Messages", icon: MessagesSquare },
+  { to: "/profile/me", label: "Profil", icon: UserRound },
+  { to: "/settings", label: "Réglages", icon: Settings },
+] as const;
 
 export default function AppShell() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { data: conversations } = useConversations();
+
+  // Query only — the realtime channel is owned solely by ConversationsList
+  // (mounting useInboxSubscription twice throws in Supabase Realtime).
+  // React Query dedupes this against the list's own use of the same key.
+  const unread = (conversations ?? []).reduce(
+    (total, c) => total + Number(c.unread_count ?? 0),
+    0
+  );
+
+  // An open conversation is a focused mode: the composer needs the bottom
+  // edge, so the tab bar steps aside rather than competing with it.
+  const isChatOpen = /^\/messages\/[^/]+$/.test(location.pathname);
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    navigate("/");
+  }
+
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-10 border-b border-neutral-200/80 bg-white/80 backdrop-blur dark:border-neutral-800/80 dark:bg-neutral-950/80">
-        <div className="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-          <span className="bg-gradient-to-r from-brand-rose-500 to-brand-purple-500 bg-clip-text text-lg font-semibold text-transparent">
-            Rencontre
-          </span>
-          <nav className="hidden gap-1 sm:flex">
-            {navItems.map((item) => (
+      <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-[1920px] items-center justify-between gap-4 px-4 py-3">
+          <NavLink to="/discover" className="flex items-center gap-2">
+            <StarMark className="h-5 w-5 text-accent" />
+            <span className="font-serif text-xl leading-none text-ink">Rencontre</span>
+          </NavLink>
+
+          <nav className="hidden items-center gap-1 sm:flex">
+            {navItems.map(({ to, label, icon: Icon }) => (
               <NavLink
-                key={item.to}
-                to={item.to}
+                key={to}
+                to={to}
                 className={({ isActive }) =>
-                  `rounded-lg px-3 py-2 text-sm font-medium ${
+                  cn(
+                    "relative inline-flex min-h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium transition-colors",
                     isActive
-                      ? "bg-brand-rose-50 text-brand-rose-600 dark:bg-neutral-900"
-                      : "text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400 dark:hover:bg-neutral-900"
-                  }`
+                      ? "bg-primary-soft text-primary"
+                      : "text-muted hover:bg-sunken hover:text-ink"
+                  )
                 }
               >
-                {item.label}
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {label}
+                {to === "/messages" && unread > 0 && (
+                  <span className="tabular ml-0.5 min-w-5 rounded-full bg-accent px-1.5 py-0.5 text-center text-[11px] font-semibold leading-none text-ink">
+                    {unread > 9 ? "9+" : unread}
+                  </span>
+                )}
               </NavLink>
             ))}
           </nav>
-          <button
-            onClick={() => supabase.auth.signOut()}
-            className="text-sm text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200"
-          >
-            Déconnexion
-          </button>
+
+          <IconButton label="Se déconnecter" size="sm" onClick={signOut}>
+            <LogOut className="h-4 w-4" />
+          </IconButton>
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-6 pb-24 sm:pb-6">
+      {/* No max-width here — the messaging workspace needs the full width for
+          its 3-column desktop layout. Narrower pages (profile, settings,
+          admin) apply their own max-w-3xl, since a child cannot escape a
+          parent's max-width once it is set. */}
+      <main
+        className={cn(
+          "mx-auto w-full max-w-[1920px] flex-1 px-4 py-6",
+          isChatOpen ? "pb-6" : "pb-24 sm:pb-6"
+        )}
+      >
         <Outlet />
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-10 flex border-t border-neutral-200 bg-white/95 backdrop-blur sm:hidden dark:border-neutral-800 dark:bg-neutral-950/95">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={({ isActive }) =>
-              `flex-1 py-3 text-center text-xs font-medium ${
-                isActive ? "text-brand-rose-600" : "text-neutral-500"
-              }`
-            }
-          >
-            {item.label}
-          </NavLink>
-        ))}
-      </nav>
+      {!isChatOpen && (
+        <nav
+          className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface/95 backdrop-blur sm:hidden"
+          style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
+        >
+          {navItems.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                cn(
+                  "relative flex flex-1 flex-col items-center justify-center gap-1 py-2.5 text-[11px] font-medium transition-colors",
+                  // min-h-14 gets these over the 44px target the old text-only
+                  // tab bar (40px) missed.
+                  "min-h-14",
+                  isActive ? "text-primary" : "text-muted"
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span
+                      className="absolute inset-x-4 top-0 h-0.5 rounded-full bg-accent"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <span className="relative">
+                    <Icon className="h-5 w-5" aria-hidden="true" />
+                    {to === "/messages" && unread > 0 && (
+                      <span className="tabular absolute -right-2.5 -top-1.5 min-w-4 rounded-full bg-accent px-1 text-center text-[10px] font-semibold leading-4 text-ink">
+                        {unread > 9 ? "9+" : unread}
+                      </span>
+                    )}
+                  </span>
+                  {label}
+                </>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+      )}
     </div>
   );
 }
