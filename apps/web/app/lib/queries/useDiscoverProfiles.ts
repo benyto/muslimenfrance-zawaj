@@ -9,6 +9,7 @@ export type DiscoverFilters = {
   departmentCode?: string;
   regionCode?: string;
   relationshipGoal?: string;
+  originCountryCode?: string;
   minAge?: number;
   maxAge?: number;
 };
@@ -24,6 +25,7 @@ export function useDiscoverProfiles(filters: DiscoverFilters) {
         p_department_code: filters.departmentCode ?? undefined,
         p_region_code: filters.regionCode ?? undefined,
         p_relationship_goal: filters.relationshipGoal ?? undefined,
+        p_origin_country_code: filters.originCountryCode ?? undefined,
         p_min_age: filters.minAge ?? undefined,
         p_max_age: filters.maxAge ?? undefined,
         p_limit: PAGE_SIZE,

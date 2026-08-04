@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import { Heart } from "lucide-react";
 import {
   eyeColorLabels,
   hairColorLabels,
@@ -12,12 +13,15 @@ import {
   smokerLabels,
   drinkerLabels,
   wantsChildrenLabels,
+  worldCountryNameByCode,
 } from "@rencontre/shared";
 import { useProfileDetail } from "~/lib/queries/useProfileDetail";
 import { useBlockProfile } from "~/lib/queries/useBlockActions";
+import { useAddFavorite, useIsFavorited, useRemoveFavorite } from "~/lib/queries/useFavorites";
 import { photoUrl } from "~/lib/queries/usePhotos";
 import { ReportForm } from "~/components/discovery/ReportForm";
 import { cn } from "~/lib/cn";
+import { ConfirmDialog } from "~/components/ui/sheet";
 
 function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
@@ -56,7 +60,11 @@ export function ProfileDetailPanel({
 }) {
   const { data: profile, isLoading, isError, error } = useProfileDetail(profileId);
   const blockProfile = useBlockProfile();
+  const isFavorited = useIsFavorited(profileId);
+  const addFavorite = useAddFavorite();
+  const removeFavorite = useRemoveFavorite();
   const [showReport, setShowReport] = useState(false);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
 
   if (isLoading) return null;
 
@@ -93,22 +101,55 @@ export function ProfileDetailPanel({
         </div>
       )}
 
-      <div>
-        <h1 className="text-xl font-semibold">
-          {profile.nickname}, {profile.age}
-        </h1>
-        {profile.commune_nom && (
-          <p className="mt-0.5 text-sm text-muted">
-            {profile.commune_nom}
-            {profile.department_name ? `, ${profile.department_name}` : ""}
-          </p>
-        )}
-        {profile.relationship_goal && (
-          <span className="mt-1 inline-block rounded-full bg-primary-soft px-2 py-0.5 text-xs text-primary">
-            {relationshipGoalLabels[profile.relationship_goal] ?? profile.relationship_goal}
-          </span>
-        )}
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold">
+            {profile.nickname}, {profile.age}
+          </h1>
+          {profile.commune_nom && (
+            <p className="mt-0.5 text-sm text-muted">
+              {profile.commune_nom}
+              {profile.department_name ? `, ${profile.department_name}` : ""}
+            </p>
+          )}
+          {profile.relationship_goal && (
+            <span className="mt-1 inline-block rounded-full bg-primary-soft px-2 py-0.5 text-xs text-primary">
+              {relationshipGoalLabels[profile.relationship_goal] ?? profile.relationship_goal}
+            </span>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() =>
+            isFavorited ? removeFavorite.mutate(profile.id) : addFavorite.mutate(profile.id)
+          }
+          disabled={addFavorite.isPending || removeFavorite.isPending}
+          aria-pressed={isFavorited}
+          aria-label={isFavorited ? "Retirer des favoris" : "Ajouter aux favoris"}
+          className={cn(
+            "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors disabled:opacity-50",
+            isFavorited
+              ? "border-romantic/40 bg-romantic-soft text-romantic"
+              : "border-line text-muted hover:border-romantic/40 hover:bg-romantic-soft hover:text-romantic"
+          )}
+        >
+          <Heart className="h-5 w-5" fill={isFavorited ? "currentColor" : "none"} aria-hidden="true" />
+        </button>
       </div>
+
+      {profile.bio && (
+        <div>
+          <h2 className="mb-1 text-xs font-medium uppercase tracking-wide text-muted">À propos</h2>
+          <p className="whitespace-pre-wrap break-words text-sm text-ink">{profile.bio}</p>
+        </div>
+      )}
+
+      {profile.looking_for && (
+        <div>
+          <h2 className="mb-1 text-xs font-medium uppercase tracking-wide text-muted">Recherche</h2>
+          <p className="whitespace-pre-wrap break-words text-sm text-ink">{profile.looking_for}</p>
+        </div>
+      )}
 
       {profile.interests && profile.interests.length > 0 && (
         <div className="flex flex-wrap gap-2">
@@ -129,6 +170,10 @@ export function ProfileDetailPanel({
         <DetailRow label="Niveau d'éducation" value={profile.education_level ? educationLevelLabels[profile.education_level] : null} />
         <DetailRow label="Profession" value={profile.occupation} />
         <DetailRow label="Statut professionnel" value={profile.employment_status ? employmentStatusLabels[profile.employment_status] : null} />
+        <DetailRow
+          label="Pays d'origine"
+          value={profile.origin_country_code ? worldCountryNameByCode[profile.origin_country_code] : null}
+        />
         <DetailRow label="Ethnie" value={profile.ethnicity} />
         <DetailRow label="Religion" value={profile.religion ? religionLabels[profile.religion] : null} />
         <DetailRow label="Niveau de pratique" value={profile.religiosity_level ? religiosityLevelLabels[profile.religiosity_level] : null} />
@@ -153,10 +198,7 @@ export function ProfileDetailPanel({
       </Link>
       <button
         type="button"
-        onClick={() => {
-          if (!confirm(`Bloquer ${profile.nickname} ? Vous ne verrez plus son profil.`)) return;
-          blockProfile.mutate(profile.id, { onSuccess: () => onBlocked?.() });
-        }}
+        onClick={() => setShowBlockConfirm(true)}
         disabled={blockProfile.isPending}
         className="rounded-xl border border-line px-4 py-2 text-sm font-medium hover:bg-sunken disabled:opacity-60 dark:hover:bg-sunken"
       >
@@ -172,6 +214,26 @@ export function ProfileDetailPanel({
     </>
   );
 
+  const blockConfirmDialog = (
+    <ConfirmDialog
+      open={showBlockConfirm}
+      onOpenChange={setShowBlockConfirm}
+      title="Bloquer ce profil ?"
+      description={`Vous ne verrez plus le profil de ${profile.nickname}, et ${profile.nickname} ne pourra plus vous contacter.`}
+      confirmLabel="Bloquer"
+      destructive
+      loading={blockProfile.isPending}
+      onConfirm={() =>
+        blockProfile.mutate(profile.id, {
+          onSuccess: () => {
+            setShowBlockConfirm(false);
+            onBlocked?.();
+          },
+        })
+      }
+    />
+  );
+
   if (variant === "panel") {
     // The footer sits outside the scrolling region entirely — a plain flex
     // sibling, not position:sticky — so there's no scrollport/padding edge
@@ -182,6 +244,7 @@ export function ProfileDetailPanel({
         <div className="flex flex-wrap items-center gap-3 border-t border-line bg-raised px-6 py-4">
           {actionButtons}
         </div>
+        {blockConfirmDialog}
       </div>
     );
   }
@@ -196,6 +259,7 @@ export function ProfileDetailPanel({
       <div className="sticky bottom-16 z-10 flex flex-wrap items-center gap-3 border-t border-line bg-raised py-4 shadow-[0_-8px_12px_-8px_rgb(0_0_0_/_0.12)] sm:bottom-0">
         {actionButtons}
       </div>
+      {blockConfirmDialog}
     </div>
   );
 }

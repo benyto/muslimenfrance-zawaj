@@ -166,6 +166,41 @@ export function Chip({
   );
 }
 
+/* ------------------------------------------------------------ ProgressBar */
+export function ProgressBar({
+  value,
+  label,
+  className,
+}: {
+  value: number;
+  label?: React.ReactNode;
+  className?: string;
+}) {
+  const pct = Math.max(0, Math.min(100, Math.round(value)));
+  return (
+    <div className={className}>
+      {label && (
+        <div className="mb-1.5 flex items-baseline justify-between gap-2 text-sm">
+          <span className="text-ink">{label}</span>
+          <span className="tabular font-mono text-xs text-muted">{pct}%</span>
+        </div>
+      )}
+      <div
+        role="progressbar"
+        aria-valuenow={pct}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        className="h-2 overflow-hidden rounded-full bg-sunken"
+      >
+        <div
+          className="h-full rounded-full bg-primary transition-[width] duration-300"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
 /* --------------------------------------------------------------- Avatar */
 function initialsOf(name: string) {
   return name.trim().slice(0, 1).toUpperCase() || "?";

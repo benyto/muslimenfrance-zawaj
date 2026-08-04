@@ -6,6 +6,8 @@ import { useSession } from "~/lib/auth/useSession";
 function toRow(input: ProfileInput) {
   return {
     nickname: input.nickname,
+    bio: input.bio ?? null,
+    looking_for: input.lookingFor ?? null,
     gender: input.gender,
     birthdate: input.birthdate,
     interests: input.interests,
@@ -28,6 +30,7 @@ function toRow(input: ProfileInput) {
     has_children: input.hasChildren ?? null,
     wants_children: input.wantsChildren ?? null,
     commune_insee_code: input.communeInseeCode ?? null,
+    origin_country_code: input.originCountryCode ?? null,
     special_category_consent: input.specialCategoryConsent,
   };
 }

@@ -5,6 +5,8 @@ import { z } from "zod";
 // accepted here — those are only ever set by admin Edge Functions.
 export const profileInputSchema = z.object({
   nickname: z.string().trim().min(2).max(50),
+  bio: z.string().trim().max(1000).nullable().optional(),
+  lookingFor: z.string().trim().max(1000).nullable().optional(),
   gender: z.enum(["male", "female"]),
   birthdate: z
     .string()
@@ -39,6 +41,7 @@ export const profileInputSchema = z.object({
   wantsChildren: z.string().trim().max(20).nullable().optional(),
 
   communeInseeCode: z.string().trim().min(1).max(10).nullable().optional(),
+  originCountryCode: z.string().trim().length(2).nullable().optional(),
 
   // Required explicit consent before religion/religiosity (GDPR Art. 9
   // special-category data) can be stored — enforced again by the
@@ -54,6 +57,7 @@ export const searchProfilesFiltersSchema = z.object({
   departmentCode: z.string().trim().min(1).max(5).optional(),
   regionCode: z.string().trim().min(1).max(5).optional(),
   relationshipGoal: z.string().max(30).optional(),
+  originCountryCode: z.string().trim().length(2).optional(),
   minAge: z.number().int().min(18).max(120).optional(),
   maxAge: z.number().int().min(18).max(120).optional(),
   limit: z.number().int().min(1).max(48).default(24),

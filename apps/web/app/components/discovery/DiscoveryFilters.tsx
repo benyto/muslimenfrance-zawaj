@@ -5,9 +5,11 @@ import {
   genderLabels,
   relationshipGoalOptions,
   relationshipGoalLabels,
+  worldCountryNameByCode,
 } from "@rencontre/shared";
 import { useDepartments, useRegions } from "~/lib/queries/useGeography";
 import { CommuneAutocomplete } from "~/components/profile/CommuneAutocomplete";
+import { CountryAutocomplete } from "~/components/profile/CountryAutocomplete";
 import type { DiscoverFilters } from "~/lib/queries/useDiscoverProfiles";
 import { Button } from "~/components/ui/button";
 import { Chip } from "~/components/ui/primitives";
@@ -70,6 +72,11 @@ export function DiscoveryFilters({
     if (department) chips.push({ key: "departmentCode", label: department.name });
   }
   if (filters.communeInseeCode) chips.push({ key: "communeInseeCode", label: "Ville choisie" });
+  if (filters.originCountryCode)
+    chips.push({
+      key: "originCountryCode",
+      label: worldCountryNameByCode[filters.originCountryCode] ?? filters.originCountryCode,
+    });
   if (filters.minAge) chips.push({ key: "minAge", label: `${filters.minAge} ans et +` });
   if (filters.maxAge) chips.push({ key: "maxAge", label: `${filters.maxAge} ans et −` });
 
@@ -179,6 +186,15 @@ export function DiscoveryFilters({
                 value={filters.communeInseeCode}
                 onChange={(code) => set("communeInseeCode", code ?? undefined)}
                 placeholder="Rechercher une ville…"
+              />
+            )}
+          </Field>
+
+          <Field label="Pays d'origine">
+            {() => (
+              <CountryAutocomplete
+                value={filters.originCountryCode}
+                onChange={(code) => set("originCountryCode", code ?? undefined)}
               />
             )}
           </Field>

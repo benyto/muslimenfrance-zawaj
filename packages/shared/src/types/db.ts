@@ -402,6 +402,42 @@ export type Database = {
           },
         ]
       }
+      profile_favorites: {
+        Row: {
+          created_at: string
+          favorited_profile_id: string
+          id: string
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          favorited_profile_id: string
+          id?: string
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          favorited_profile_id?: string
+          id?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_favorites_favorited_profile_id_fkey"
+            columns: ["favorited_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_favorites_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_photos: {
         Row: {
           created_at: string
@@ -445,6 +481,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          bio: string | null
           birthdate: string
           body_type: string | null
           commune_insee_code: string | null
@@ -463,12 +500,14 @@ export type Database = {
           income_range: string | null
           interests: string[]
           languages_spoken: string[]
+          looking_for: string | null
           moderated_at: string | null
           moderated_by: string | null
           moderation_notes: string | null
           moderation_status: string
           nickname: string
           occupation: string | null
+          origin_country_code: string | null
           relationship_goal: string | null
           religion: string | null
           religiosity_level: string | null
@@ -481,6 +520,7 @@ export type Database = {
           weight: number | null
         }
         Insert: {
+          bio?: string | null
           birthdate: string
           body_type?: string | null
           commune_insee_code?: string | null
@@ -499,12 +539,14 @@ export type Database = {
           income_range?: string | null
           interests?: string[]
           languages_spoken?: string[]
+          looking_for?: string | null
           moderated_at?: string | null
           moderated_by?: string | null
           moderation_notes?: string | null
           moderation_status?: string
           nickname: string
           occupation?: string | null
+          origin_country_code?: string | null
           relationship_goal?: string | null
           religion?: string | null
           religiosity_level?: string | null
@@ -517,6 +559,7 @@ export type Database = {
           weight?: number | null
         }
         Update: {
+          bio?: string | null
           birthdate?: string
           body_type?: string | null
           commune_insee_code?: string | null
@@ -535,12 +578,14 @@ export type Database = {
           income_range?: string | null
           interests?: string[]
           languages_spoken?: string[]
+          looking_for?: string | null
           moderated_at?: string | null
           moderated_by?: string | null
           moderation_notes?: string | null
           moderation_status?: string
           nickname?: string
           occupation?: string | null
+          origin_country_code?: string | null
           relationship_goal?: string | null
           religion?: string | null
           religiosity_level?: string | null
@@ -830,11 +875,22 @@ export type Database = {
           unread_count: number
         }[]
       }
+      get_my_favorites: {
+        Args: never
+        Returns: {
+          commune_nom: string
+          favorited_at: string
+          favorited_profile_id: string
+          nickname: string
+          photo_key: string
+        }[]
+      }
       get_my_roles: { Args: never; Returns: string[] }
       get_profile_detail: {
         Args: { p_profile_id: string }
         Returns: {
           age: number
+          bio: string
           body_type: string
           commune_insee_code: string
           commune_nom: string
@@ -852,8 +908,10 @@ export type Database = {
           income_range: string
           interests: string[]
           languages_spoken: string[]
+          looking_for: string
           nickname: string
           occupation: string
+          origin_country_code: string
           photo_keys: string[]
           region_name: string
           relationship_goal: string
@@ -882,6 +940,7 @@ export type Database = {
           p_max_age?: number
           p_min_age?: number
           p_offset?: number
+          p_origin_country_code?: string
           p_region_code?: string
           p_relationship_goal?: string
         }

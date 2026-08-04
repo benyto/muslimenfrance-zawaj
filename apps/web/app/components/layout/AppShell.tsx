@@ -2,6 +2,9 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { Compass, LogOut, MessagesSquare, Settings, UserRound } from "lucide-react";
 import { supabase } from "~/lib/supabase-client";
 import { useConversations } from "~/lib/queries/useConversations";
+import { useMyProfile } from "~/lib/queries/useMyProfile";
+import { usePhotos } from "~/lib/queries/usePhotos";
+import { computeProfileCompletion, PROFILE_COMPLETION_THRESHOLD } from "~/lib/profile-completion";
 import { cn } from "~/lib/cn";
 import { StarMark } from "~/components/ui/star";
 import { IconButton } from "~/components/ui/button";
@@ -25,6 +28,11 @@ export default function AppShell() {
     (total, c) => total + Number(c.unread_count ?? 0),
     0
   );
+
+  const { data: profile } = useMyProfile();
+  const { data: photos } = usePhotos(profile?.id);
+  const isProfileIncomplete =
+    computeProfileCompletion(profile, photos?.length ?? 0) < PROFILE_COMPLETION_THRESHOLD;
 
   // An open conversation is a focused mode: the composer needs the bottom
   // edge, so the tab bar steps aside rather than competing with it.
@@ -64,6 +72,12 @@ export default function AppShell() {
                   <span className="tabular ml-0.5 min-w-5 rounded-full bg-accent px-1.5 py-0.5 text-center text-[11px] font-semibold leading-none text-ink">
                     {unread > 9 ? "9+" : unread}
                   </span>
+                )}
+                {to === "/profile/me" && isProfileIncomplete && (
+                  <>
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
+                    <span className="sr-only">Profil incomplet</span>
+                  </>
                 )}
               </NavLink>
             ))}
@@ -121,6 +135,15 @@ export default function AppShell() {
                       <span className="tabular absolute -right-2.5 -top-1.5 min-w-4 rounded-full bg-accent px-1 text-center text-[10px] font-semibold leading-4 text-ink">
                         {unread > 9 ? "9+" : unread}
                       </span>
+                    )}
+                    {to === "/profile/me" && isProfileIncomplete && (
+                      <>
+                        <span
+                          className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-accent"
+                          aria-hidden="true"
+                        />
+                        <span className="sr-only">Profil incomplet</span>
+                      </>
                     )}
                   </span>
                   {label}

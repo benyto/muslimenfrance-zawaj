@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useBlockedProfiles, useUnblockProfile } from "~/lib/queries/useBlockActions";
 import {
@@ -11,6 +12,7 @@ import { supabase } from "~/lib/supabase-client";
 import { useTheme, type ThemePreference } from "~/lib/theme";
 import { Card } from "~/components/ui/primitives";
 import { Chip } from "~/components/ui/primitives";
+import { ConfirmDialog } from "~/components/ui/sheet";
 
 function BlockedUsers() {
   const { data: blocked, isLoading } = useBlockedProfiles();
@@ -131,11 +133,9 @@ function PrivacySection() {
   const navigate = useNavigate();
   const exportData = useExportData();
   const deleteAccount = useDeleteAccount();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  async function handleDelete() {
-    if (!confirm("Supprimer définitivement votre compte et toutes vos données ? Cette action est irréversible.")) {
-      return;
-    }
+  function handleDelete() {
     deleteAccount.mutate(undefined, {
       onSuccess: async () => {
         await supabase.auth.signOut();
@@ -166,7 +166,7 @@ function PrivacySection() {
         <div>
           <button
             type="button"
-            onClick={handleDelete}
+            onClick={() => setShowDeleteConfirm(true)}
             disabled={deleteAccount.isPending}
             className="rounded-xl border border-danger px-5 py-2 text-sm font-medium text-danger hover:bg-danger-soft disabled:opacity-60 dark:border-red-900 dark:hover:bg-danger-soft"
           >
@@ -177,6 +177,20 @@ function PrivacySection() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onOpenChange={setShowDeleteConfirm}
+        title="Supprimer votre compte ?"
+        description="Cette action est irréversible : votre profil, vos photos, vos conversations et toutes vos données seront définitivement supprimés."
+        confirmLabel="Supprimer définitivement"
+        destructive
+        loading={deleteAccount.isPending}
+        onConfirm={() => {
+          setShowDeleteConfirm(false);
+          handleDelete();
+        }}
+      />
     </div>
   );
 }

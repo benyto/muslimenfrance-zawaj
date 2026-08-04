@@ -16,6 +16,7 @@ const FILTER_KEYS = [
   "departmentCode",
   "regionCode",
   "relationshipGoal",
+  "originCountryCode",
   "minAge",
   "maxAge",
 ] as const;
@@ -29,6 +30,7 @@ function parseFilters(params: URLSearchParams): DiscoverFilters {
     departmentCode: get("departmentCode"),
     regionCode: get("regionCode"),
     relationshipGoal: get("relationshipGoal"),
+    originCountryCode: get("originCountryCode"),
     minAge: num("minAge"),
     maxAge: num("maxAge"),
   };

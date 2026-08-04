@@ -1,22 +1,23 @@
 import { Outlet, useLocation, useSearchParams } from "react-router";
-import { ConversationsList } from "~/components/messaging/ConversationsList";
+import { ContactsSidebar } from "~/components/messaging/ContactsSidebar";
 import { ProfileDetailPanel } from "~/components/profile/ProfileDetailPanel";
 
 // Desktop-only 3-column workspace wrapping /discover, /messages and
-// /messages/:profileId: a persistent conversation list (left) and profile
-// preview (right) stay mounted across navigation between those routes —
-// only the center Outlet swaps.
+// /messages/:profileId: a persistent contacts/favorites sidebar (left) and
+// profile preview (right) stay mounted across navigation between those
+// routes — only the center Outlet swaps.
 //
-// ConversationsList owns a realtime channel keyed by the caller's profile
-// id (see useInboxSubscription) — mounting it twice at once (e.g. once
-// here, hidden via CSS, and again inside the /messages route for mobile)
-// makes Supabase Realtime throw ("cannot add postgres_changes callbacks
-// ... after subscribe()") because both instances race to open a channel
-// with the same name. So it is mounted in exactly one place, here, and
-// its container is repositioned rather than duplicated: full-width in
-// document flow on mobile when the bare /messages route is active
-// (replacing what the Outlet would show), a persistent sidebar on
-// desktop, hidden entirely on mobile for every other route.
+// ContactsSidebar's Contacts tab (ConversationsList) owns a realtime
+// channel keyed by the caller's profile id (see useInboxSubscription) —
+// mounting it twice at once (e.g. once here, hidden via CSS, and again
+// inside the /messages route for mobile) makes Supabase Realtime throw
+// ("cannot add postgres_changes callbacks ... after subscribe()") because
+// both instances race to open a channel with the same name. So it is
+// mounted in exactly one place, here, and its container is repositioned
+// rather than duplicated: full-width in document flow on mobile when the
+// bare /messages route is active (replacing what the Outlet would show), a
+// persistent sidebar on desktop, hidden entirely on mobile for every other
+// route.
 //
 // The "selected profile" for the right column is derived from the current
 // route rather than passed down explicitly: /messages/:profileId's param
@@ -53,7 +54,7 @@ export default function MessagingWorkspaceLayout() {
       <aside className={`w-full lg:sticky lg:top-20 lg:w-80 lg:shrink-0 ${isMessagesIndex ? "block" : "hidden lg:block"}`}>
         {isMessagesIndex && <h1 className="mb-4 text-xl font-semibold lg:hidden">Messages</h1>}
         <div className="lg:max-h-[var(--pane-h)] lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-line lg:bg-raised">
-          <ConversationsList activeProfileId={messagesMatch?.[1]} />
+          <ContactsSidebar activeProfileId={messagesMatch?.[1]} />
         </div>
       </aside>
 

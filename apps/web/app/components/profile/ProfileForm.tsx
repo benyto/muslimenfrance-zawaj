@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useBlocker } from "react-router";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -33,6 +34,12 @@ import { useMyProfile } from "~/lib/queries/useMyProfile";
 import { useUpsertProfile } from "~/lib/queries/useUpsertProfile";
 import { TagInput } from "./TagInput";
 import { CommuneAutocomplete } from "./CommuneAutocomplete";
+import { CountryAutocomplete } from "./CountryAutocomplete";
+import { useToast } from "~/components/ui/toast";
+import { StarSpinner } from "~/components/ui/star";
+import { ProgressBar } from "~/components/ui/primitives";
+import { Field, Input, Select, Textarea, Checkbox } from "~/components/ui/form";
+import { ConfirmDialog } from "~/components/ui/sheet";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -43,43 +50,21 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function Field({
-  label,
-  error,
-  children,
-  full,
-}: {
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-  full?: boolean;
-}) {
-  return (
-    <div className={full ? "sm:col-span-2" : undefined}>
-      <label className="mb-2 block text-sm font-medium text-ink">{label}</label>
-      {children}
-      {error && <p className="mt-1 text-xs text-danger">{error}</p>}
-    </div>
-  );
-}
-
-const inputClass =
-  "w-full rounded-xl border border-line bg-raised px-3 py-2 text-sm outline-none focus:border-primary";
-
 function optionEntries(options: readonly string[], labels: Record<string, string>) {
   return options.map((value) => ({ value, label: labels[value] ?? value }));
 }
 
-export function ProfileForm() {
+export function ProfileForm({ completion }: { completion: number }) {
   const { data: profile, isLoading: profileLoading } = useMyProfile();
   const upsert = useUpsertProfile();
+  const toast = useToast();
 
   const {
     register,
     handleSubmit,
     control,
     reset,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
   } = useForm<ProfileInput>({
     resolver: zodResolver(profileInputSchema),
     defaultValues: {
@@ -94,6 +79,8 @@ export function ProfileForm() {
     if (!profile) return;
     reset({
       nickname: profile.nickname ?? "",
+      bio: profile.bio ?? "",
+      lookingFor: profile.looking_for ?? "",
       gender: (profile.gender as ProfileInput["gender"]) ?? undefined,
       birthdate: profile.birthdate ?? "",
       interests: profile.interests ?? [],
@@ -116,245 +103,386 @@ export function ProfileForm() {
       hasChildren: profile.has_children ?? undefined,
       wantsChildren: profile.wants_children ?? undefined,
       communeInseeCode: profile.commune_insee_code ?? undefined,
+      originCountryCode: profile.origin_country_code ?? undefined,
       specialCategoryConsent: (profile.special_category_consent ?? false) as ProfileInput["specialCategoryConsent"],
     } as unknown as ProfileInput);
   }, [profile, reset]);
 
   function onSubmit(values: ProfileInput) {
-    upsert.mutate({ input: values, isFirstConsent: !profile?.special_category_consent });
+    upsert.mutate(
+      { input: values, isFirstConsent: !profile?.special_category_consent },
+      {
+        // No manual reset needed here — a successful save invalidates the
+        // my-profile query, which reruns the effect above with fresh values
+        // and clears isDirty as a side effect of that reset() call.
+        onSuccess: () => toast({ tone: "success", title: "Profil enregistré" }),
+        onError: (error) =>
+          toast({ tone: "error", title: "Échec de l'enregistrement", description: (error as Error).message }),
+      }
+    );
   }
+
+  // In-app navigation (clicking Découvrir, Messages, etc.) — covered by
+  // React Router's blocker. Leaving the app entirely (closing the tab,
+  // refreshing, typing a new URL) isn't something the router can see, so
+  // that's the separate native beforeunload prompt below; the browser
+  // supplies its own wording for that one, a custom dialog isn't possible.
+  const blocker = useBlocker(isDirty);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isDirty]);
 
   if (profileLoading) return null;
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6 pb-28">
       <Section title="Informations de base">
-        <Field label="Prénom / pseudo" error={errors.nickname?.message}>
-          <input type="text" {...register("nickname")} className={inputClass} />
+        <Field label="Prénom / pseudo" required error={errors.nickname?.message}>
+          {(props) => <Input {...props} type="text" {...register("nickname")} />}
         </Field>
-        <Field label="Genre" error={errors.gender?.message}>
-          <select {...register("gender")} className={inputClass}>
-            <option value="">Sélectionner</option>
-            {optionEntries(genderOptions, genderLabels).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+        <Field label="Genre" required error={errors.gender?.message}>
+          {(props) => (
+            <Select {...props} {...register("gender")} defaultValue="">
+              <option value="">Sélectionner</option>
+              {optionEntries(genderOptions, genderLabels).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
-        <Field label="Date de naissance" error={errors.birthdate?.message}>
-          <input type="date" {...register("birthdate")} className={inputClass} />
+        <Field label="Date de naissance" required error={errors.birthdate?.message}>
+          {(props) => <Input {...props} type="date" {...register("birthdate")} />}
         </Field>
         <Field label="Ville" error={errors.communeInseeCode?.message}>
-          <Controller
-            name="communeInseeCode"
-            control={control}
-            render={({ field }) => (
-              <CommuneAutocomplete value={field.value} onChange={field.onChange} />
-            )}
-          />
+          {() => (
+            <Controller
+              name="communeInseeCode"
+              control={control}
+              render={({ field }) => (
+                <CommuneAutocomplete value={field.value} onChange={field.onChange} />
+              )}
+            />
+          )}
+        </Field>
+      </Section>
+
+      <Section title="À propos de moi">
+        <Field label="Parlez de vous" error={errors.bio?.message} full>
+          {(props) => (
+            <Textarea
+              {...props}
+              {...register("bio")}
+              rows={4}
+              maxLength={1000}
+              placeholder="Ce qui vous décrit le mieux, vos valeurs, votre quotidien..."
+            />
+          )}
+        </Field>
+        <Field label="Ce que vous recherchez" error={errors.lookingFor?.message} full>
+          {(props) => (
+            <Textarea
+              {...props}
+              {...register("lookingFor")}
+              rows={4}
+              maxLength={1000}
+              placeholder="La personne et la relation que vous recherchez..."
+            />
+          )}
         </Field>
       </Section>
 
       <Section title="Physique">
         <Field label="Taille (cm)" error={errors.height?.message}>
-          <input
-            type="number"
-            {...register("height", { setValueAs: (v) => (v === "" ? undefined : Number(v)) })}
-            className={inputClass}
-            min={100}
-            max={250}
-          />
+          {(props) => (
+            <Input
+              {...props}
+              type="number"
+              {...register("height", { setValueAs: (v) => (v === "" ? undefined : Number(v)) })}
+              min={100}
+              max={250}
+            />
+          )}
         </Field>
         <Field label="Poids (kg)" error={errors.weight?.message}>
-          <input
-            type="number"
-            {...register("weight", { setValueAs: (v) => (v === "" ? undefined : Number(v)) })}
-            className={inputClass}
-            min={30}
-            max={300}
-          />
+          {(props) => (
+            <Input
+              {...props}
+              type="number"
+              {...register("weight", { setValueAs: (v) => (v === "" ? undefined : Number(v)) })}
+              min={30}
+              max={300}
+            />
+          )}
         </Field>
-        <Field label="Couleur des yeux">
-          <select {...register("eyeColor")} className={inputClass}>
-            <option value="">Sélectionner</option>
-            {optionEntries(eyeColorOptions, eyeColorLabels).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+        <Field label="Couleur des yeux" error={errors.eyeColor?.message}>
+          {(props) => (
+            <Select {...props} {...register("eyeColor")} defaultValue="">
+              <option value="">Sélectionner</option>
+              {optionEntries(eyeColorOptions, eyeColorLabels).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
-        <Field label="Couleur des cheveux">
-          <select {...register("hairColor")} className={inputClass}>
-            <option value="">Sélectionner</option>
-            {optionEntries(hairColorOptions, hairColorLabels).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+        <Field label="Couleur des cheveux" error={errors.hairColor?.message}>
+          {(props) => (
+            <Select {...props} {...register("hairColor")} defaultValue="">
+              <option value="">Sélectionner</option>
+              {optionEntries(hairColorOptions, hairColorLabels).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
-        <Field label="Type de corps">
-          <select {...register("bodyType")} className={inputClass}>
-            <option value="">Sélectionner</option>
-            {optionEntries(bodyTypeOptions, bodyTypeLabels).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+        <Field label="Type de corps" error={errors.bodyType?.message}>
+          {(props) => (
+            <Select {...props} {...register("bodyType")} defaultValue="">
+              <option value="">Sélectionner</option>
+              {optionEntries(bodyTypeOptions, bodyTypeLabels).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
       </Section>
 
       <Section title="Informations socio-professionnelles">
-        <Field label="Niveau d'éducation">
-          <select {...register("educationLevel")} className={inputClass}>
-            <option value="">Sélectionner</option>
-            {optionEntries(educationLevelOptions, educationLevelLabels).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+        <Field label="Niveau d'éducation" error={errors.educationLevel?.message}>
+          {(props) => (
+            <Select {...props} {...register("educationLevel")} defaultValue="">
+              <option value="">Sélectionner</option>
+              {optionEntries(educationLevelOptions, educationLevelLabels).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
-        <Field label="Profession">
-          <input type="text" {...register("occupation")} className={inputClass} maxLength={100} />
+        <Field label="Profession" error={errors.occupation?.message}>
+          {(props) => <Input {...props} type="text" {...register("occupation")} maxLength={100} />}
         </Field>
-        <Field label="Statut professionnel">
-          <select {...register("employmentStatus")} className={inputClass}>
-            <option value="">Sélectionner</option>
-            {optionEntries(employmentStatusOptions, employmentStatusLabels).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+        <Field label="Statut professionnel" error={errors.employmentStatus?.message}>
+          {(props) => (
+            <Select {...props} {...register("employmentStatus")} defaultValue="">
+              <option value="">Sélectionner</option>
+              {optionEntries(employmentStatusOptions, employmentStatusLabels).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
-        <Field label="Tranche de revenus">
-          <input type="text" {...register("incomeRange")} className={inputClass} placeholder="ex: 2000-4000€" maxLength={30} />
+        <Field label="Tranche de revenus" error={errors.incomeRange?.message}>
+          {(props) => (
+            <Input {...props} type="text" {...register("incomeRange")} placeholder="ex: 2000-4000€" maxLength={30} />
+          )}
         </Field>
       </Section>
 
       <Section title="Origines et culture">
-        <Field label="Ethnie">
-          <input type="text" {...register("ethnicity")} className={inputClass} placeholder="ex: Nord-Africain, Européen..." maxLength={50} />
+        <Field label="Pays d'origine" error={errors.originCountryCode?.message}>
+          {() => (
+            <Controller
+              name="originCountryCode"
+              control={control}
+              render={({ field }) => (
+                <CountryAutocomplete value={field.value} onChange={field.onChange} />
+              )}
+            />
+          )}
         </Field>
-        <Field label="Religion">
-          <select {...register("religion")} className={inputClass}>
-            <option value="">Sélectionner</option>
-            {optionEntries(religionOptions, religionLabels).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+        <Field label="Ethnie" error={errors.ethnicity?.message}>
+          {(props) => (
+            <Input
+              {...props}
+              type="text"
+              {...register("ethnicity")}
+              placeholder="ex: Nord-Africain, Européen..."
+              maxLength={50}
+            />
+          )}
         </Field>
-        <Field label="Niveau de pratique">
-          <select {...register("religiosityLevel")} className={inputClass}>
-            <option value="">Sélectionner</option>
-            {optionEntries(religiosityLevelOptions, religiosityLevelLabels).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+        <Field label="Religion" error={errors.religion?.message}>
+          {(props) => (
+            <Select {...props} {...register("religion")} defaultValue="">
+              <option value="">Sélectionner</option>
+              {optionEntries(religionOptions, religionLabels).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
-        <Field label="Langues parlées" full>
-          <Controller
-            name="languagesSpoken"
-            control={control}
-            render={({ field }) => (
-              <TagInput label="" placeholder="Ajouter une langue" value={field.value ?? []} onChange={field.onChange} max={10} />
-            )}
-          />
+        <Field label="Niveau de pratique" error={errors.religiosityLevel?.message}>
+          {(props) => (
+            <Select {...props} {...register("religiosityLevel")} defaultValue="">
+              <option value="">Sélectionner</option>
+              {optionEntries(religiosityLevelOptions, religiosityLevelLabels).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          )}
+        </Field>
+        <Field label="Langues parlées" error={errors.languagesSpoken?.message} full>
+          {() => (
+            <Controller
+              name="languagesSpoken"
+              control={control}
+              render={({ field }) => (
+                <TagInput label="" placeholder="Ajouter une langue" value={field.value ?? []} onChange={field.onChange} max={10} />
+              )}
+            />
+          )}
         </Field>
       </Section>
 
       <Section title="Préférences relationnelles">
-        <Field label="Objectif relationnel">
-          <select {...register("relationshipGoal")} className={inputClass}>
-            <option value="">Sélectionner</option>
-            {optionEntries(relationshipGoalOptions, relationshipGoalLabels).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+        <Field label="Objectif relationnel" error={errors.relationshipGoal?.message}>
+          {(props) => (
+            <Select {...props} {...register("relationshipGoal")} defaultValue="">
+              <option value="">Sélectionner</option>
+              {optionEntries(relationshipGoalOptions, relationshipGoalLabels).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
-        <Field label="Fumeur">
-          <select {...register("smoker")} className={inputClass}>
-            <option value="">Sélectionner</option>
-            {optionEntries(smokerOptions, smokerLabels).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+        <Field label="Fumeur" error={errors.smoker?.message}>
+          {(props) => (
+            <Select {...props} {...register("smoker")} defaultValue="">
+              <option value="">Sélectionner</option>
+              {optionEntries(smokerOptions, smokerLabels).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
-        <Field label="Consommation d'alcool">
-          <select {...register("drinker")} className={inputClass}>
-            <option value="">Sélectionner</option>
-            {optionEntries(drinkerOptions, drinkerLabels).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+        <Field label="Consommation d'alcool" error={errors.drinker?.message}>
+          {(props) => (
+            <Select {...props} {...register("drinker")} defaultValue="">
+              <option value="">Sélectionner</option>
+              {optionEntries(drinkerOptions, drinkerLabels).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
-        <Field label="Souhaite des enfants">
-          <select {...register("wantsChildren")} className={inputClass}>
-            <option value="">Sélectionner</option>
-            {optionEntries(wantsChildrenOptions, wantsChildrenLabels).map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+        <Field label="Souhaite des enfants" error={errors.wantsChildren?.message}>
+          {(props) => (
+            <Select {...props} {...register("wantsChildren")} defaultValue="">
+              <option value="">Sélectionner</option>
+              {optionEntries(wantsChildrenOptions, wantsChildrenLabels).map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
+          )}
         </Field>
-        <Field label="Enfants" full>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" {...register("hasChildren")} className="h-4 w-4" />
-            J&apos;ai des enfants
-          </label>
+        <Field error={errors.hasChildren?.message} full>
+          {() => <Checkbox label="J'ai des enfants" {...register("hasChildren")} />}
         </Field>
       </Section>
 
       <Section title="Centres d'intérêt">
-        <Field label="" full>
-          <Controller
-            name="interests"
-            control={control}
-            render={({ field }) => (
-              <TagInput label="Centres d'intérêt" placeholder="ex: Lecture, Voyage..." value={field.value ?? []} onChange={field.onChange} max={20} />
-            )}
-          />
+        <Field error={errors.interests?.message} full>
+          {() => (
+            <Controller
+              name="interests"
+              control={control}
+              render={({ field }) => (
+                <TagInput label="Centres d'intérêt" placeholder="ex: Lecture, Voyage..." value={field.value ?? []} onChange={field.onChange} max={20} />
+              )}
+            />
+          )}
         </Field>
       </Section>
 
       <Section title="Confidentialité">
-        <Field label="" full error={errors.specialCategoryConsent?.message}>
-          <label className="flex items-start gap-3 text-sm">
-            <input type="checkbox" {...register("specialCategoryConsent")} className="mt-1 h-4 w-4" />
-            <span>
-              J&apos;accepte que mes données relatives à ma religion et mon niveau de pratique religieuse soient
-              collectées et utilisées dans le cadre de mon profil de rencontre (données sensibles au sens du RGPD).
-            </span>
-          </label>
+        <Field error={errors.specialCategoryConsent?.message} full>
+          {() => (
+            <Checkbox
+              label="J'accepte que mes données relatives à ma religion et mon niveau de pratique religieuse soient collectées et utilisées dans le cadre de mon profil de rencontre (données sensibles au sens du RGPD)."
+              {...register("specialCategoryConsent")}
+            />
+          )}
         </Field>
       </Section>
 
-      {upsert.isError && (
-        <p className="text-sm text-danger">{(upsert.error as Error).message}</p>
-      )}
+      {/* position:fixed, not sticky — this form sits in a plain flex-col
+          inside the page (no bounded-height scroll container the way the
+          chat pane has), and sticky's containing block turned out to be the
+          form's own box: once the form's trailing padding was reached the
+          bar just stopped and scrolled away with the rest of the content
+          instead of staying pinned to the viewport. Fixed sidesteps that
+          entirely. The bottom offset matches the mobile tab bar's actual
+          rendered height exactly (56px content + its own safe-area
+          padding, see AppShell) rather than a rounded bottom-16 guess —
+          that 8px gap between the two bars on non-notched phones was
+          exactly that rounding. Hidden at sm and up, where bottom-0 takes
+          over since the tab bar itself is hidden there. The form's pb-28
+          keeps the last section from sitting underneath it. Doubles as the completion
+          meter so it doesn't also cost space at the top of the page as a
+          separate element. Disabled when there's nothing new to save: a
+          successful save invalidates my-profile, which reruns the reset()
+          effect above and clears isDirty, so the button naturally goes back
+          to disabled right after saving rather than inviting a redundant
+          resave. */}
+      <div className="fixed inset-x-0 bottom-[calc(3.5rem+env(safe-area-inset-bottom))] z-20 border-t border-line bg-surface/95 backdrop-blur sm:bottom-0">
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-2 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <ProgressBar value={completion} label="Profil complété" className="flex-1" />
+            <button
+              type="submit"
+              disabled={!isDirty || isSubmitting || upsert.isPending}
+              className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl bg-primary px-6 text-sm font-medium text-on-primary disabled:opacity-50"
+            >
+              {upsert.isPending && <StarSpinner className="h-4 w-4 text-current" />}
+              {upsert.isPending ? "Enregistrement..." : "Enregistrer mon profil"}
+            </button>
+          </div>
+          {isDirty && <span className="text-xs text-muted">Modifications non enregistrées</span>}
+        </div>
+      </div>
 
-      <button
-        type="submit"
-        disabled={isSubmitting || upsert.isPending}
-        className="self-start rounded-xl bg-primary px-6 py-3 text-sm font-medium text-on-primary disabled:opacity-60"
-      >
-        {upsert.isPending ? "Enregistrement..." : "Enregistrer mon profil"}
-      </button>
+      <ConfirmDialog
+        open={blocker.state === "blocked"}
+        onOpenChange={(open) => {
+          if (!open) blocker.reset?.();
+        }}
+        title="Quitter sans enregistrer ?"
+        description="Vous avez des modifications non enregistrées sur votre profil. Si vous quittez maintenant, elles seront perdues."
+        confirmLabel="Quitter sans enregistrer"
+        cancelLabel="Continuer l'édition"
+        destructive
+        onConfirm={() => blocker.proceed?.()}
+      />
     </form>
   );
 }
