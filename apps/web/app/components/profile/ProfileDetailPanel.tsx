@@ -22,6 +22,7 @@ import { photoUrl } from "~/lib/queries/usePhotos";
 import { ReportForm } from "~/components/discovery/ReportForm";
 import { cn } from "~/lib/cn";
 import { ConfirmDialog } from "~/components/ui/sheet";
+import { PhotoLightbox } from "~/components/ui/lightbox";
 
 function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
@@ -65,6 +66,7 @@ export function ProfileDetailPanel({
   const removeFavorite = useRemoveFavorite();
   const [showReport, setShowReport] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   if (isLoading) return null;
 
@@ -91,8 +93,19 @@ export function ProfileDetailPanel({
 
       {profile.photo_keys && profile.photo_keys.length > 0 ? (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {profile.photo_keys.map((key) => (
-            <img key={key} src={photoUrl(key)} alt="" className="aspect-square w-full rounded-xl object-cover" />
+          {profile.photo_keys.map((key, i) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setLightboxIndex(i)}
+              className="aspect-square overflow-hidden rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+            >
+              <img
+                src={photoUrl(key)}
+                alt={`Photo ${i + 1} de ${profile.nickname}`}
+                className="h-full w-full object-cover transition-transform hover:scale-105"
+              />
+            </button>
           ))}
         </div>
       ) : (
@@ -234,6 +247,16 @@ export function ProfileDetailPanel({
     />
   );
 
+  const photoLightbox = profile.photo_keys && profile.photo_keys.length > 0 && (
+    <PhotoLightbox
+      photos={profile.photo_keys.map((key) => photoUrl(key))}
+      index={lightboxIndex ?? 0}
+      onIndexChange={setLightboxIndex}
+      open={lightboxIndex !== null}
+      onOpenChange={(open) => !open && setLightboxIndex(null)}
+    />
+  );
+
   if (variant === "panel") {
     // The footer sits outside the scrolling region entirely — a plain flex
     // sibling, not position:sticky — so there's no scrollport/padding edge
@@ -245,6 +268,7 @@ export function ProfileDetailPanel({
           {actionButtons}
         </div>
         {blockConfirmDialog}
+        {photoLightbox}
       </div>
     );
   }
@@ -260,6 +284,7 @@ export function ProfileDetailPanel({
         {actionButtons}
       </div>
       {blockConfirmDialog}
+      {photoLightbox}
     </div>
   );
 }

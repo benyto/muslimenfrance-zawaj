@@ -10,45 +10,58 @@ import {
 import { useExportData, useDeleteAccount } from "~/lib/queries/useGdpr";
 import { supabase } from "~/lib/supabase-client";
 import { useTheme, type ThemePreference } from "~/lib/theme";
-import { Card } from "~/components/ui/primitives";
-import { Chip } from "~/components/ui/primitives";
+import { Card, Badge, Chip, Skeleton } from "~/components/ui/primitives";
+import { Button } from "~/components/ui/button";
 import { ConfirmDialog } from "~/components/ui/sheet";
+
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return <h2 className="mb-4 font-serif text-lg text-ink">{children}</h2>;
+}
 
 function BlockedUsers() {
   const { data: blocked, isLoading } = useBlockedProfiles();
   const unblock = useUnblockProfile();
 
   return (
-    <div className="rounded-2xl border border-line bg-raised p-6">
-      <h2 className="mb-4 text-base font-semibold">Utilisateurs bloqués</h2>
-      {isLoading && <p className="text-sm text-muted">Chargement...</p>}
+    <Card className="p-6">
+      <SectionHeading>Utilisateurs bloqués</SectionHeading>
+      {isLoading && (
+        <div className="flex flex-col gap-2">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <Skeleton key={i} className="h-11 w-full rounded-xl" />
+          ))}
+        </div>
+      )}
       {!isLoading && blocked?.length === 0 && (
         <p className="text-sm text-muted">Vous n&apos;avez bloqué personne.</p>
       )}
       <ul className="flex flex-col gap-2">
         {blocked?.map((b) => (
-          <li key={b.blocked_profile_id} className="flex items-center justify-between rounded-xl border border-line px-4 py-2">
-            <span className="text-sm">{b.nickname}</span>
+          <li
+            key={b.blocked_profile_id}
+            className="flex items-center justify-between rounded-xl border border-line px-4 py-2"
+          >
+            <span className="text-sm text-ink">{b.nickname}</span>
             <button
               type="button"
               onClick={() => unblock.mutate(b.blocked_profile_id)}
               disabled={unblock.isPending}
-              className="text-sm text-primary hover:underline disabled:opacity-60"
+              className="text-sm font-medium text-primary hover:underline disabled:opacity-60"
             >
               Débloquer
             </button>
           </li>
         ))}
       </ul>
-    </div>
+    </Card>
   );
 }
 
-const statusLabels: Record<string, { label: string; className: string }> = {
-  trialing: { label: "Période d'essai", className: "bg-warning-soft text-warning" },
-  active: { label: "Actif", className: "bg-success-soft text-success" },
-  past_due: { label: "Paiement en retard", className: "bg-danger-soft text-danger" },
-  canceled: { label: "Annulé", className: "bg-sunken text-muted" },
+const statusLabels: Record<string, { label: string; tone: "warning" | "success" | "danger" | "neutral" }> = {
+  trialing: { label: "Période d'essai", tone: "warning" },
+  active: { label: "Actif", tone: "success" },
+  past_due: { label: "Paiement en retard", tone: "danger" },
+  canceled: { label: "Annulé", tone: "neutral" },
 };
 
 function SubscriptionSection() {
@@ -59,14 +72,21 @@ function SubscriptionSection() {
   const startCheckout = useStartCheckout();
   const openPortal = useOpenBillingPortal();
 
-  if (productLoading || subLoading) return null;
+  if (productLoading || subLoading) {
+    return (
+      <Card className="p-6">
+        <SectionHeading>Abonnement</SectionHeading>
+        <Skeleton className="h-6 w-40 rounded-full" />
+      </Card>
+    );
+  }
 
   const isActive = subscription && ["trialing", "active"].includes(subscription.status);
   const status = subscription ? statusLabels[subscription.status] : null;
 
   return (
-    <div className="rounded-2xl border border-line bg-raised p-6">
-      <h2 className="mb-4 text-base font-semibold">Abonnement</h2>
+    <Card className="p-6">
+      <SectionHeading>Abonnement</SectionHeading>
 
       {checkoutResult === "success" && (
         <p className="mb-4 rounded-xl bg-success-soft p-3 text-sm text-success">
@@ -81,7 +101,7 @@ function SubscriptionSection() {
 
       {subscription && (
         <div className="mb-4 flex items-center gap-3">
-          {status && <span className={`rounded-full px-3 py-1 text-xs font-medium ${status.className}`}>{status.label}</span>}
+          {status && <Badge tone={status.tone}>{status.label}</Badge>}
           {subscription.current_period_end && (
             <span className="text-sm text-muted">
               {subscription.cancel_at_period_end ? "Se termine le " : "Renouvellement le "}
@@ -100,32 +120,25 @@ function SubscriptionSection() {
       {!isActive && product && (
         <div>
           <p className="mb-3 text-sm text-muted">
-            {((product.price_amount ?? 0) / 100).toFixed(2)} {product.currency.toUpperCase()} / {product.interval === "month" ? "mois" : product.interval}
+            {((product.price_amount ?? 0) / 100).toFixed(2)} {product.currency.toUpperCase()} /{" "}
+            {product.interval === "month" ? "mois" : product.interval}
             {product.trial_period_days > 0 && ` — ${product.trial_period_days} jours d'essai gratuit`}
           </p>
-          {startCheckout.isError && <p className="mb-2 text-sm text-danger">{(startCheckout.error as Error).message}</p>}
-          <button
-            type="button"
-            onClick={() => startCheckout.mutate()}
-            disabled={startCheckout.isPending}
-            className="rounded-xl bg-primary px-5 py-2 text-sm font-medium text-on-primary disabled:opacity-60"
-          >
+          {startCheckout.isError && (
+            <p className="mb-2 text-sm text-danger">{(startCheckout.error as Error).message}</p>
+          )}
+          <Button onClick={() => startCheckout.mutate()} loading={startCheckout.isPending}>
             {startCheckout.isPending ? "Redirection..." : "S'abonner"}
-          </button>
+          </Button>
         </div>
       )}
 
       {subscription && (
-        <button
-          type="button"
-          onClick={() => openPortal.mutate()}
-          disabled={openPortal.isPending}
-          className="mt-2 rounded-xl border border-line px-5 py-2 text-sm font-medium hover:bg-sunken disabled:opacity-60 dark:hover:bg-sunken"
-        >
+        <Button variant="secondary" className="mt-2" onClick={() => openPortal.mutate()} loading={openPortal.isPending}>
           {openPortal.isPending ? "Redirection..." : "Gérer mon abonnement"}
-        </button>
+        </Button>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -145,33 +158,27 @@ function PrivacySection() {
   }
 
   return (
-    <div className="rounded-2xl border border-line bg-raised p-6">
-      <h2 className="mb-4 text-base font-semibold">Confidentialité et données</h2>
+    <Card className="p-6">
+      <SectionHeading>Confidentialité et données</SectionHeading>
 
       <div className="flex flex-col gap-3">
         <div>
-          <button
-            type="button"
-            onClick={() => exportData.mutate()}
-            disabled={exportData.isPending}
-            className="rounded-xl border border-line px-5 py-2 text-sm font-medium hover:bg-sunken disabled:opacity-60 dark:hover:bg-sunken"
-          >
+          <Button variant="secondary" onClick={() => exportData.mutate()} loading={exportData.isPending}>
             {exportData.isPending ? "Export en cours..." : "Exporter mes données"}
-          </button>
+          </Button>
           {exportData.isError && (
             <p className="mt-2 text-sm text-danger">{(exportData.error as Error).message}</p>
           )}
         </div>
 
         <div>
-          <button
-            type="button"
+          <Button
+            variant="danger"
             onClick={() => setShowDeleteConfirm(true)}
             disabled={deleteAccount.isPending}
-            className="rounded-xl border border-danger px-5 py-2 text-sm font-medium text-danger hover:bg-danger-soft disabled:opacity-60 dark:border-red-900 dark:hover:bg-danger-soft"
           >
             {deleteAccount.isPending ? "Suppression..." : "Supprimer mon compte"}
-          </button>
+          </Button>
           {deleteAccount.isError && (
             <p className="mt-2 text-sm text-danger">{(deleteAccount.error as Error).message}</p>
           )}
@@ -191,7 +198,7 @@ function PrivacySection() {
           handleDelete();
         }}
       />
-    </div>
+    </Card>
   );
 }
 
@@ -206,7 +213,7 @@ function AppearanceSection() {
 
   return (
     <Card className="p-6">
-      <h2 className="mb-1 font-serif text-lg text-ink">Apparence</h2>
+      <SectionHeading>Apparence</SectionHeading>
       <p className="mb-4 text-sm text-muted">
         « Système » suit le réglage de votre appareil.
       </p>

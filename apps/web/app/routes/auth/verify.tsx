@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, useSearchParams } from "react-router";
 import { supabase } from "~/lib/supabase-client";
+import { StarSpinner } from "~/components/ui/star";
 
 export default function Verify() {
   const [searchParams] = useSearchParams();
@@ -23,7 +24,8 @@ export default function Verify() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center">
+    <div className="flex min-h-dvh flex-col items-center justify-center gap-3">
+      <StarSpinner className="h-8 w-8 text-accent" label="Connexion en cours" />
       <p className="text-sm text-muted">Connexion en cours...</p>
     </div>
   );
