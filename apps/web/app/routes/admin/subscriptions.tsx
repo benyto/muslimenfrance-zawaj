@@ -5,6 +5,9 @@ import {
   useUpdateSubscriptionProduct,
   type AdminSubscriptionProductRow,
 } from "~/lib/queries/useAdmin";
+import { Badge, Card, Skeleton } from "~/components/ui/primitives";
+import { Button } from "~/components/ui/button";
+import { Field, Input, Select, Checkbox } from "~/components/ui/form";
 
 const audienceLabels: Record<string, string> = { all: "Tous", male: "Hommes", female: "Femmes" };
 
@@ -13,13 +16,18 @@ export default function AdminSubscriptions() {
 
   return (
     <div>
-      <div className="rounded-2xl border border-line bg-primary-soft p-4 text-sm text-primary">
-        Tant qu'aucun produit n'est activé (« Actif » désactivé) pour l'audience d'un utilisateur, la
-        messagerie reste gratuite pour lui — c'est le mode de lancement actuel.
-      </div>
+      <h1 className="font-serif text-2xl text-ink">Abonnements</h1>
+
+      <Card className="mt-4 border-primary/30 bg-primary-soft p-4">
+        <p className="text-sm text-primary">
+          Tant qu&apos;aucun produit n&apos;est activé (« Actif » désactivé) pour l&apos;audience d&apos;un
+          utilisateur, la messagerie reste gratuite pour lui — c&apos;est le mode de lancement actuel.
+        </p>
+      </Card>
 
       <div className="mt-4 flex flex-col gap-3">
-        {isLoading && <p className="text-sm text-muted">Chargement…</p>}
+        {isLoading &&
+          Array.from({ length: 2 }).map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-2xl" />)}
         {products?.map((product) => <ProductRow key={product.id} product={product} />)}
       </div>
 
@@ -44,56 +52,34 @@ function ProductRow({ product }: { product: AdminSubscriptionProductRow }) {
   }
 
   return (
-    <div className="rounded-2xl border border-line p-4">
+    <Card className="p-4">
       <div className="flex items-center justify-between gap-3">
-        <span className="rounded-full bg-sunken px-2 py-0.5 text-xs text-muted">
-          {audienceLabels[product.audience] ?? product.audience}
-        </span>
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={product.enabled}
-            onChange={(e) => update.mutate({ id: product.id, enabled: e.target.checked })}
-          />
-          Actif
-        </label>
+        <Badge tone="neutral">{audienceLabels[product.audience] ?? product.audience}</Badge>
+        <Checkbox
+          label="Actif"
+          checked={product.enabled}
+          onChange={(e) => update.mutate({ id: product.id, enabled: e.target.checked })}
+        />
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <div className="col-span-2 sm:col-span-1">
-          <label className="text-xs text-muted">Nom</label>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full rounded-xl border border-line bg-raised px-3 py-1.5 text-sm"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-muted">Prix (centimes)</label>
-          <input
-            type="number"
-            value={priceAmount}
-            onChange={(e) => setPriceAmount(e.target.value)}
-            className="w-full rounded-xl border border-line bg-raised px-3 py-1.5 text-sm"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-muted">Essai (jours)</label>
-          <input
-            type="number"
-            value={trialDays}
-            onChange={(e) => setTrialDays(e.target.value)}
-            className="w-full rounded-xl border border-line bg-raised px-3 py-1.5 text-sm"
-          />
-        </div>
+      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Field label="Nom">
+          {(props) => <Input {...props} value={name} onChange={(e) => setName(e.target.value)} />}
+        </Field>
+        <Field label="Prix (centimes)">
+          {(props) => (
+            <Input {...props} type="number" value={priceAmount} onChange={(e) => setPriceAmount(e.target.value)} />
+          )}
+        </Field>
+        <Field label="Essai (jours)">
+          {(props) => (
+            <Input {...props} type="number" value={trialDays} onChange={(e) => setTrialDays(e.target.value)} />
+          )}
+        </Field>
         <div className="flex items-end">
-          <button
-            onClick={save}
-            disabled={update.isPending}
-            className="w-full rounded-xl bg-primary px-3 py-1.5 text-sm font-medium text-on-primary disabled:opacity-60"
-          >
+          <Button className="w-full" loading={update.isPending} onClick={save}>
             Enregistrer
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -101,7 +87,7 @@ function ProductRow({ product }: { product: AdminSubscriptionProductRow }) {
         <p className="mt-2 text-xs text-muted">Stripe price: {product.stripe_price_id}</p>
       )}
       {update.isError && <p className="mt-2 text-sm text-danger">{(update.error as Error).message}</p>}
-    </div>
+    </Card>
   );
 }
 
@@ -127,46 +113,35 @@ function CreateProductForm({ existingAudiences }: { existingAudiences: string[] 
   }
 
   return (
-    <form
-      onSubmit={submit}
-      className="mt-4 flex flex-col gap-2 rounded-2xl border border-dashed border-line-strong p-4"
-    >
-      <p className="text-sm font-medium">Nouveau produit d'abonnement</p>
-      <div className="flex flex-wrap gap-2">
-        <select
-          value={audience}
-          onChange={(e) => setAudience(e.target.value as typeof audience)}
-          className="rounded-xl border border-line bg-raised px-3 py-1.5 text-sm"
-        >
-          {availableAudiences.map((a) => (
-            <option key={a} value={a}>
-              {audienceLabels[a]}
-            </option>
-          ))}
-        </select>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Nom (ex: Abonnement Premium)"
-          required
-          className="flex-1 rounded-xl border border-line bg-raised px-3 py-1.5 text-sm"
-        />
-        <input
-          type="number"
-          value={trialDays}
-          onChange={(e) => setTrialDays(e.target.value)}
-          placeholder="Essai (jours)"
-          className="w-28 rounded-xl border border-line bg-raised px-3 py-1.5 text-sm"
-        />
-        <button
-          type="submit"
-          disabled={create.isPending}
-          className="rounded-xl bg-primary px-4 py-1.5 text-sm font-medium text-on-primary disabled:opacity-60"
-        >
+    <Card className="mt-4 border-dashed p-4">
+      <form onSubmit={submit} className="flex flex-col gap-3">
+        <p className="text-sm font-medium text-ink">Nouveau produit d&apos;abonnement</p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Field label="Audience">
+            {(props) => (
+              <Select {...props} value={audience} onChange={(e) => setAudience(e.target.value as typeof audience)}>
+                {availableAudiences.map((a) => (
+                  <option key={a} value={a}>
+                    {audienceLabels[a]}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+          <Field label="Nom" full>
+            {(props) => (
+              <Input {...props} value={name} onChange={(e) => setName(e.target.value)} placeholder="ex: Abonnement Premium" required />
+            )}
+          </Field>
+          <Field label="Essai (jours)">
+            {(props) => <Input {...props} type="number" value={trialDays} onChange={(e) => setTrialDays(e.target.value)} />}
+          </Field>
+        </div>
+        <Button type="submit" className="self-start" loading={create.isPending}>
           Créer
-        </button>
-      </div>
-      {create.isError && <p className="text-sm text-danger">{(create.error as Error).message}</p>}
-    </form>
+        </Button>
+        {create.isError && <p className="text-sm text-danger">{(create.error as Error).message}</p>}
+      </form>
+    </Card>
   );
 }

@@ -854,6 +854,27 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      admin_search_profiles: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+          p_subscription_status?: string
+        }
+        Returns: {
+          birthdate: string
+          created_at: string
+          email: string
+          gender: string
+          id: string
+          moderation_status: string
+          nickname: string
+          primary_photo_key: string
+          subscription_status: string
+          total_count: number
+        }[]
+      }
       get_my_blocked_profiles: {
         Args: never
         Returns: {

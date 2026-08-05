@@ -11,13 +11,67 @@ type ReportStatus = "pending" | "reviewed" | "resolved" | "dismissed";
 // "admin select" policies already grant full access once is_admin_or_moderator()
 // is true, so there's no need to route reads through the API.
 
-export function useAdminProfiles(status: ProfileModerationStatus | "all") {
+const PROFILES_PAGE_SIZE = 20;
+
+// Nickname search alone would've missed everything a moderator actually
+// searches for (an account tied to a specific email during a support
+// request), and email lives on auth.users — not reachable from a plain
+// client-side select regardless of RLS, since PostgREST doesn't expose the
+// auth schema. admin_search_profiles() is a security-definer RPC precisely
+// for that read, and folds pagination in too: count(*) over() returns the
+// total match count alongside each page's rows in the same query.
+export function useAdminProfilesSearch(
+  status: ProfileModerationStatus | "all",
+  subscriptionStatus: string,
+  search: string,
+  page: number
+) {
   return useQuery({
-    queryKey: ["admin-profiles", status],
+    queryKey: ["admin-profiles", status, subscriptionStatus, search, page],
     queryFn: async () => {
-      let query = supabase.from("profiles").select("*").order("created_at", { ascending: false });
-      if (status !== "all") query = query.eq("moderation_status", status);
-      const { data, error } = await query;
+      const { data, error } = await supabase.rpc("admin_search_profiles", {
+        p_status: status,
+        p_subscription_status: subscriptionStatus,
+        p_search: search || undefined,
+        p_limit: PROFILES_PAGE_SIZE,
+        p_offset: page * PROFILES_PAGE_SIZE,
+      });
+      if (error) throw error;
+      return {
+        rows: data,
+        total: data[0]?.total_count ?? 0,
+      };
+    },
+  });
+}
+
+export { PROFILES_PAGE_SIZE };
+
+// Independent of the list's status filter — the detail sheet needs the row
+// regardless of which filtered view it was opened from, and needs to stay
+// correct after a moderation action changes the profile's own status.
+export function useAdminProfile(profileId: string | undefined) {
+  return useQuery({
+    queryKey: ["admin-profile", profileId],
+    enabled: !!profileId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("profiles").select("*").eq("id", profileId!).single();
+      if (error) throw error;
+      return data;
+    },
+  });
+}
+
+export function useAdminProfilePhotos(profileId: string | undefined) {
+  return useQuery({
+    queryKey: ["admin-profile-photos", profileId],
+    enabled: !!profileId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profile_photos")
+        .select("*")
+        .eq("profile_id", profileId!)
+        .order("position");
       if (error) throw error;
       return data;
     },
@@ -34,6 +88,7 @@ export function useModerateProfile() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-profile"] });
       queryClient.invalidateQueries({ queryKey: ["admin-counts"] });
     },
   });
@@ -65,6 +120,8 @@ export function useModeratePhoto() {
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-photos"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-profile-photos"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
       queryClient.invalidateQueries({ queryKey: ["admin-counts"] });
     },
   });
@@ -177,7 +234,8 @@ export function useAdminCounts() {
   });
 }
 
-export type AdminProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+export type AdminProfileSearchRow = Database["public"]["Functions"]["admin_search_profiles"]["Returns"][number];
+export type AdminProfilePhotoRow = Database["public"]["Tables"]["profile_photos"]["Row"];
 export type AdminPhotoRow = Database["public"]["Tables"]["profile_photos"]["Row"] & {
   profiles: { nickname: string } | null;
 };

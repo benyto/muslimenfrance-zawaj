@@ -20,16 +20,21 @@ export default [
       route("profile/me", "routes/profile/me.tsx"),
       route("profile/:id", "routes/profile/$id.tsx"),
       route("settings", "routes/settings/index.tsx"),
+    ]),
 
-      layout("lib/auth/RequireAdmin.tsx", [
-        route("admin", "components/admin/AdminShell.tsx", [
-          index("routes/admin/index.tsx"),
-          route("profiles", "routes/admin/profiles.tsx"),
-          route("photos", "routes/admin/photos.tsx"),
-          route("reports", "routes/admin/reports.tsx"),
-          route("subscriptions", "routes/admin/subscriptions.tsx"),
-          route("audit-log", "routes/admin/audit-log.tsx"),
-        ]),
+    // Sibling to AppShell, not nested inside it — admin gets its own shell
+    // (left sidebar, distinct white chrome) rather than sitting inside the
+    // member app's top nav + bottom tab bar, which was fighting for space
+    // with a dashboard layout and made admin visually indistinguishable
+    // from the member-facing app.
+    layout("lib/auth/RequireAdmin.tsx", [
+      route("admin", "components/admin/AdminShell.tsx", [
+        index("routes/admin/index.tsx"),
+        route("profiles", "routes/admin/profiles.tsx"),
+        route("photos", "routes/admin/photos.tsx"),
+        route("reports", "routes/admin/reports.tsx"),
+        route("subscriptions", "routes/admin/subscriptions.tsx"),
+        route("audit-log", "routes/admin/audit-log.tsx"),
       ]),
     ]),
   ]),
