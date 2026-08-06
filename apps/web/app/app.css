@@ -58,6 +58,14 @@
   --primary-soft: #e3edf1;
   --on-primary: #faf7f2;  /*  9.61:1 on primary */
 
+  /* Own-message chat bubble only — deliberately not --primary. Full-colour
+     emoji glyphs are opaque bitmaps the browser can't recolour, and against
+     --primary's near-black petrol (9.61:1, chosen for button/nav text
+     contrast) they read as muddy/clashing. A lighter, less saturated tone
+     from the same hue family keeps the bubble clearly "branded" without
+     fighting bright yellows/reds. Still 4.5:1+ with --on-primary. */
+  --bubble-mine: #1b6e8c; /*  5.38:1 with --on-primary */
+
   --accent: #c8862b;      /* fills / borders / icons — NOT text on light */
   --accent-ink: #9a6419;  /*  4.67:1 on surface — brass text */
   --accent-soft: #f7eddc;
@@ -92,6 +100,9 @@
   --primary-hover: #7cbdd6;
   --primary-soft: #14323f;
   --on-primary: #06171e;  /*  6.94:1 on primary */
+
+  --bubble-mine: #4a9bc9; /*  5.94:1 with --on-primary — see :root for why
+                              this isn't just --primary */
 
   --accent: #d9a441;      /*  7.52:1 — brass is legible as text here */
   --accent-ink: #d9a441;
@@ -139,6 +150,7 @@
   --color-primary-hover: var(--primary-hover);
   --color-primary-soft: var(--primary-soft);
   --color-on-primary: var(--on-primary);
+  --color-bubble-mine: var(--bubble-mine);
 
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
@@ -220,6 +232,20 @@
   }
 }
 
+/* Y-axis on purpose, not X — used on the toast, which sets
+   swipeDirection="right" for swipe-to-dismiss. Radix drives that gesture
+   by writing its own inline transform: translateX(...) on the same
+   element; a CSS keyframe also animating transform on the X axis fights
+   it for the same property and loses partway through, which read as the
+   toast jumping into place instead of sliding. Vertical motion doesn't
+   share an axis with the swipe, so nothing to collide with. */
+@keyframes rc-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+}
+
 @utility anim-fade {
   animation: rc-fade 160ms ease-out;
 }
@@ -230,6 +256,10 @@
 
 @utility anim-slide-in {
   animation: rc-slide-in 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@utility anim-drop {
+  animation: rc-drop 220ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @media (prefers-reduced-motion: reduce) {

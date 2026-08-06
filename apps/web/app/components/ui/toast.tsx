@@ -25,10 +25,10 @@ type ToastContextValue = {
 
 const ToastContext = createContext<ToastContextValue | null>(null);
 
-const toneStyles: Record<ToastTone, { icon: typeof Info; className: string }> = {
-  success: { icon: CircleCheck, className: "text-success" },
-  error: { icon: CircleAlert, className: "text-danger" },
-  info: { icon: Info, className: "text-primary" },
+const toneStyles: Record<ToastTone, { icon: typeof Info; iconClass: string; borderClass: string }> = {
+  success: { icon: CircleCheck, iconClass: "text-success", borderClass: "border-l-success" },
+  error: { icon: CircleAlert, iconClass: "text-danger", borderClass: "border-l-danger" },
+  info: { icon: Info, iconClass: "text-primary", borderClass: "border-l-primary" },
 };
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
@@ -45,16 +45,29 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <ToastPrimitive.Provider swipeDirection="right" duration={5000}>
         {children}
         {items.map((item) => {
-          const { icon: Icon, className } = toneStyles[item.tone];
+          const { icon: Icon, iconClass, borderClass } = toneStyles[item.tone];
           return (
             <ToastPrimitive.Root
               key={item.id}
               onOpenChange={(open) =>
                 !open && setItems((prev) => prev.filter((i) => i.id !== item.id))
               }
-              className="anim-rise flex items-start gap-3 rounded-xl border border-line bg-raised p-4 shadow-lg"
+              className={cn(
+                // anim-drop (Y-axis), not anim-slide-in (X-axis) — this
+                // root has swipeDirection="right", and Radix drives that
+                // swipe by writing its own inline transform: translateX(…)
+                // on mount. A CSS animation also targeting the X axis
+                // fights that inline style for the same property and loses
+                // partway through — visually a jump into place instead of
+                // a slide. Vertical motion doesn't share an axis with the
+                // swipe gesture, so nothing to collide with, and it also
+                // suits the new top-right resting spot better than the
+                // old anim-rise (built for sliding up from the bottom).
+                "anim-drop flex items-start gap-3 rounded-xl border border-l-4 border-line bg-raised p-4 shadow-2xl",
+                borderClass
+              )}
             >
-              <Icon className={cn("mt-0.5 h-5 w-5 shrink-0", className)} aria-hidden="true" />
+              <Icon className={cn("mt-0.5 h-5 w-5 shrink-0", iconClass)} aria-hidden="true" />
               <div className="min-w-0 flex-1">
                 <ToastPrimitive.Title className="text-sm font-medium text-ink">
                   {item.title}
@@ -75,8 +88,8 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           );
         })}
         <ToastPrimitive.Viewport
-          className="fixed inset-x-0 bottom-0 z-[60] flex w-full flex-col gap-2 p-4 sm:inset-x-auto sm:right-0 sm:max-w-sm"
-          style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+          className="fixed inset-x-0 top-0 z-[60] flex w-full flex-col gap-2 p-4 sm:inset-x-auto sm:right-0 sm:max-w-sm"
+          style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
         />
       </ToastPrimitive.Provider>
     </ToastContext.Provider>

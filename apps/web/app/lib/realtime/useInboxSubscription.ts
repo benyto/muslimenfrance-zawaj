@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Database } from "@rencontre/shared";
 import { supabase } from "~/lib/supabase-client";
@@ -14,10 +14,16 @@ type ConversationSummary = Database["public"]["Functions"]["get_my_conversations
 // incoming messages: outgoing ones already refresh the list via the
 // send-message mutation's onSuccess.
 //
-// activeProfileId is the conversation currently open on screen, if any —
-// its messages already render live in the open thread, so toasting them
-// too would just be noise.
-export function useInboxSubscription(myProfileId: string | undefined, activeProfileId?: string) {
+// pinnedProfileRef holds the conversation partner whose thread is both open
+// AND scrolled to the bottom right now, if any — written by the chat route.
+// Being *on* /messages/:id isn't enough to skip the toast: the thread now
+// paginates, so the reader could be scrolled up through older messages and
+// never see one that lands at the bottom. Read as a ref (not a prop) so
+// this hook doesn't need to re-subscribe every time the reader scrolls.
+export function useInboxSubscription(
+  myProfileId: string | undefined,
+  pinnedProfileRef: RefObject<string | null>
+) {
   const queryClient = useQueryClient();
   const toast = useToast();
 
@@ -39,7 +45,7 @@ export function useInboxSubscription(myProfileId: string | undefined, activeProf
           queryClient.invalidateQueries({ queryKey: ["conversations"] });
           queryClient.invalidateQueries({ queryKey: ["messages"] });
 
-          if (message.sender_profile_id === activeProfileId) return;
+          if (message.sender_profile_id === pinnedProfileRef.current) return;
 
           void notifyNewMessage(message, queryClient, toast);
         }
@@ -49,7 +55,8 @@ export function useInboxSubscription(myProfileId: string | undefined, activeProf
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [myProfileId, activeProfileId, queryClient, toast]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myProfileId, queryClient, toast]);
 }
 
 async function notifyNewMessage(

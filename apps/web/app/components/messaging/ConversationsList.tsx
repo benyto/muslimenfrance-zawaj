@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import type { RefObject } from "react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useConversations } from "~/lib/queries/useConversations";
@@ -13,9 +14,15 @@ import { ButtonLink } from "~/components/ui/button";
 // sidebar. Mounted in exactly one place (MessagingWorkspaceLayout) because
 // useInboxSubscription opens a realtime channel keyed by profile id, and two
 // live instances race on the same channel name.
-export function ConversationsList({ activeProfileId }: { activeProfileId?: string }) {
+export function ConversationsList({
+  activeProfileId,
+  pinnedProfileRef,
+}: {
+  activeProfileId?: string;
+  pinnedProfileRef: RefObject<string | null>;
+}) {
   const { data: myProfile } = useMyProfile();
-  useInboxSubscription(myProfile?.id, activeProfileId);
+  useInboxSubscription(myProfile?.id, pinnedProfileRef);
   const { data: conversations, isLoading } = useConversations();
 
   if (isLoading) {

@@ -1,6 +1,8 @@
+import { useRef } from "react";
 import { Outlet, useLocation, useSearchParams } from "react-router";
 import { ContactsSidebar } from "~/components/messaging/ContactsSidebar";
 import { ProfileDetailPanel } from "~/components/profile/ProfileDetailPanel";
+import type { ChatOutletContext } from "~/routes/messages/$profileId";
 
 // Desktop-only 3-column workspace wrapping /discover, /messages and
 // /messages/:profileId: a persistent contacts/favorites sidebar (left) and
@@ -25,6 +27,16 @@ import { ProfileDetailPanel } from "~/components/profile/ProfileDetailPanel";
 export default function MessagingWorkspaceLayout() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+
+  // Which conversation partner's messages are both open AND scrolled into
+  // view right now, if any — written by the chat route (via Outlet
+  // context) and read by useInboxSubscription to decide whether a new
+  // message needs a toast. Being on the /messages/:id route alone isn't
+  // enough to skip the toast: the reader could be scrolled up through
+  // older messages (now that the thread paginates) and never see a
+  // message that lands at the bottom. A ref, not state — this only needs
+  // to be read inside an async realtime callback, never rendered.
+  const pinnedProfileRef = useRef<string | null>(null);
 
   const messagesMatch = location.pathname.match(/^\/messages\/([^/]+)$/);
   const isMessagesIndex = location.pathname === "/messages";
@@ -54,12 +66,12 @@ export default function MessagingWorkspaceLayout() {
       <aside className={`w-full lg:sticky lg:top-20 lg:w-80 lg:shrink-0 ${isMessagesIndex ? "block" : "hidden lg:block"}`}>
         {isMessagesIndex && <h1 className="mb-4 text-xl font-semibold lg:hidden">Messages</h1>}
         <div className="lg:max-h-[var(--pane-h)] lg:overflow-y-auto lg:rounded-2xl lg:border lg:border-line lg:bg-raised">
-          <ContactsSidebar activeProfileId={messagesMatch?.[1]} />
+          <ContactsSidebar activeProfileId={messagesMatch?.[1]} pinnedProfileRef={pinnedProfileRef} />
         </div>
       </aside>
 
       <div className={`min-w-0 flex-1 ${isMessagesIndex ? "hidden lg:block" : ""}`}>
-        <Outlet />
+        <Outlet context={{ pinnedProfileRef } satisfies ChatOutletContext} />
       </div>
 
       {/* Fixed width regardless of what's in the center column — the whole

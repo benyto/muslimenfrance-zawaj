@@ -1,16 +1,17 @@
-import { useEffect, useRef, useState } from "react";
-import { Link, useParams } from "react-router";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { Link, useOutletContext, useParams } from "react-router";
 import { ArrowLeft, Check, CheckCheck, SendHorizontal } from "lucide-react";
 import { useMyProfile } from "~/lib/queries/useMyProfile";
 import { useProfileDetail } from "~/lib/queries/useProfileDetail";
 import { useConversationWithProfile } from "~/lib/queries/useConversations";
-import { useConversationMessages } from "~/lib/queries/useConversationMessages";
+import { useConversationMessages, flattenMessagePages } from "~/lib/queries/useConversationMessages";
 import { useSendMessage } from "~/lib/queries/useSendMessage";
 import { useMarkAsRead } from "~/lib/queries/useMarkAsRead";
 import { useTypingIndicator } from "~/lib/realtime/useTypingIndicator";
 import { photoUrl } from "~/lib/queries/usePhotos";
 import { cn } from "~/lib/cn";
 import { Avatar, Divider, EmptyState, Skeleton } from "~/components/ui/primitives";
+import { EmojiPickerButton } from "~/components/ui/emoji-picker";
 
 import { StarSpinner } from "~/components/ui/star";
 
@@ -32,8 +33,15 @@ function dayLabel(iso: string) {
   return dayFormatter.format(date);
 }
 
+// Shared with MessagingWorkspaceLayout, which owns the ref and passes it
+// down via <Outlet context>. This route writes to it (see syncPinned
+// below); useInboxSubscription, mounted in the sidebar, reads it to decide
+// whether a new message needs a toast.
+export type ChatOutletContext = { pinnedProfileRef: RefObject<string | null> };
+
 export default function ChatWithProfile() {
   const { profileId: otherProfileId } = useParams();
+  const { pinnedProfileRef } = useOutletContext<ChatOutletContext>();
   const { data: myProfile } = useMyProfile();
   const { data: otherProfile } = useProfileDetail(otherProfileId);
   const { data: conversationId, isLoading: conversationLoading } = useConversationWithProfile(
@@ -41,7 +49,14 @@ export default function ChatWithProfile() {
     otherProfileId
   );
 
-  const { data: messages, isLoading: messagesLoading } = useConversationMessages(conversationId);
+  const {
+    data,
+    isLoading: messagesLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useConversationMessages(conversationId);
+  const messages = useMemo(() => flattenMessagePages(data?.pages), [data]);
   const sendMessage = useSendMessage();
   const markAsRead = useMarkAsRead();
   const { otherIsTyping, notifyTyping } = useTypingIndicator(conversationId, myProfile?.id);
@@ -49,15 +64,78 @@ export default function ChatWithProfile() {
   const [draft, setDraft] = useState("");
   const threadRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLInputElement>(null);
   const pinnedRef = useRef(true);
 
-  // Only auto-scroll when the reader is already at the bottom, so arriving
-  // messages never yank someone who has scrolled up to read history.
+  // Keeps the shared pinnedProfileRef (read by useInboxSubscription, up in
+  // the sidebar) in sync with this thread's own local pinnedRef — the two
+  // exist because pinnedRef needs to be read synchronously inside
+  // handleScroll, while pinnedProfileRef additionally needs to know *whose*
+  // thread is pinned, not just whether the currently-open one is.
+  function syncPinned() {
+    pinnedProfileRef.current = pinnedRef.current && otherProfileId ? otherProfileId : null;
+  }
+
+  useEffect(() => {
+    syncPinned();
+    return () => {
+      // Only clear if this thread is still the one it points at — a fast
+      // navigation to another conversation may already have overwritten it.
+      if (pinnedProfileRef.current === otherProfileId) pinnedProfileRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otherProfileId]);
+
+  // Inserts at the cursor rather than appending to the end, so picking an
+  // emoji mid-sentence doesn't shove it to the wrong place. requestAnimationFrame
+  // because the cursor position has to be restored after React re-renders
+  // the input with the new value, not before.
+  function insertEmoji(emoji: string) {
+    const el = composerRef.current;
+    const start = el?.selectionStart ?? draft.length;
+    const end = el?.selectionEnd ?? draft.length;
+    setDraft((current) => current.slice(0, start) + emoji + current.slice(end));
+    notifyTyping();
+    requestAnimationFrame(() => {
+      el?.focus();
+      const cursor = start + emoji.length;
+      el?.setSelectionRange(cursor, cursor);
+    });
+  }
+  // Set right before fetchNextPage() so the layout effect below knows an
+  // older page is what changed scrollHeight, not a new incoming message —
+  // and holds the pre-fetch height to restore scroll position against.
+  const prevScrollHeightRef = useRef<number | null>(null);
+  const pageCountRef = useRef(0);
+
+  // Only auto-scroll to bottom when the reader is already there, so
+  // arriving messages never yank someone who has scrolled up to read
+  // history. Loading older messages at the top, separately: fetch the next
+  // page once the reader scrolls near the top.
   function handleScroll() {
     const el = threadRef.current;
     if (!el) return;
     pinnedRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    syncPinned();
+    if (el.scrollTop < 150 && hasNextPage && !isFetchingNextPage) {
+      prevScrollHeightRef.current = el.scrollHeight;
+      fetchNextPage();
+    }
   }
+
+  // Prepending older messages moves everything below them down by however
+  // tall the new content is — left alone, the reader's view would jump to
+  // whatever now occupies their old scroll position. Restoring scrollTop by
+  // the exact height delta keeps the message they were looking at in place.
+  useLayoutEffect(() => {
+    const pageCount = data?.pages.length ?? 0;
+    const el = threadRef.current;
+    if (pageCount > pageCountRef.current && prevScrollHeightRef.current !== null && el) {
+      el.scrollTop += el.scrollHeight - prevScrollHeightRef.current;
+      prevScrollHeightRef.current = null;
+    }
+    pageCountRef.current = pageCount;
+  }, [data?.pages.length]);
 
   useEffect(() => {
     if (!pinnedRef.current) return;
@@ -65,20 +143,21 @@ export default function ChatWithProfile() {
     // previous default of "start" also scrolled the document, dragging the
     // composer and header around on every new message.
     bottomRef.current?.scrollIntoView({ block: "nearest" });
-  }, [messages?.length, otherIsTyping]);
+  }, [messages.length, otherIsTyping]);
 
   useEffect(() => {
     if (conversationId && myProfile?.id) {
       markAsRead.mutate({ conversationId, myProfileId: myProfile.id });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, myProfile?.id, messages?.length]);
+  }, [conversationId, myProfile?.id, messages.length]);
 
   function handleSend(event: React.FormEvent) {
     event.preventDefault();
     const content = draft.trim();
     if (!content || !otherProfileId) return;
     pinnedRef.current = true;
+    syncPinned();
     sendMessage.mutate({ recipientProfileId: otherProfileId, content }, { onSuccess: () => setDraft("") });
   }
 
@@ -145,15 +224,21 @@ export default function ChatWithProfile() {
           </div>
         )}
 
-        {!loading && (!messages || messages.length === 0) && (
+        {!loading && messages.length === 0 && (
           <EmptyState
             title={`Dites bonjour à ${otherProfile?.nickname ?? "ce membre"}`}
             description="Un premier message simple et sincère fonctionne toujours mieux qu'une formule toute faite."
           />
         )}
 
+        {isFetchingNextPage && (
+          <div className="flex justify-center py-2">
+            <StarSpinner className="h-4 w-4 text-muted" label="Chargement des messages précédents" />
+          </div>
+        )}
+
         <div className="flex flex-col gap-1">
-          {messages?.map((m, index) => {
+          {messages.map((m, index) => {
             const isMine = m.sender_profile_id === myProfile?.id;
             const previous = index > 0 ? messages[index - 1] : null;
             const next = index < messages.length - 1 ? messages[index + 1] : null;
@@ -186,7 +271,7 @@ export default function ChatWithProfile() {
                       // multi-line messages previously broke the layout.
                       "whitespace-pre-wrap break-words rounded-2xl px-4 py-2 text-sm",
                       isMine
-                        ? "bg-primary text-on-primary"
+                        ? "bg-bubble-mine text-on-primary"
                         : "border border-line bg-raised text-ink",
                       isMine
                         ? sameAsNext
@@ -259,6 +344,7 @@ export default function ChatWithProfile() {
           Votre message
         </label>
         <input
+          ref={composerRef}
           id="chat-composer"
           type="text"
           value={draft}
@@ -272,6 +358,7 @@ export default function ChatWithProfile() {
           enterKeyHint="send"
           className="min-h-11 flex-1 rounded-xl border border-line-strong bg-raised px-4 text-sm text-ink placeholder:text-muted/70"
         />
+        <EmojiPickerButton onSelect={insertEmoji} />
         <button
           type="submit"
           disabled={sendMessage.isPending || !draft.trim()}

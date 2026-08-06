@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type RefObject } from "react";
 import { cn } from "~/lib/cn";
 import { ConversationsList } from "./ConversationsList";
 import { FavoritesList } from "./FavoritesList";
@@ -9,7 +9,13 @@ import { FavoritesList } from "./FavoritesList";
 // race on the same channel name), so switching tabs hides it with CSS
 // rather than unmounting it, which would tear the channel down and rebuild
 // it on every switch.
-export function ContactsSidebar({ activeProfileId }: { activeProfileId?: string }) {
+export function ContactsSidebar({
+  activeProfileId,
+  pinnedProfileRef,
+}: {
+  activeProfileId?: string;
+  pinnedProfileRef: RefObject<string | null>;
+}) {
   const [tab, setTab] = useState<"contacts" | "favorites">("contacts");
 
   return (
@@ -46,7 +52,7 @@ export function ContactsSidebar({ activeProfileId }: { activeProfileId?: string 
       </div>
 
       <div className={tab === "contacts" ? "" : "hidden"}>
-        <ConversationsList activeProfileId={activeProfileId} />
+        <ConversationsList activeProfileId={activeProfileId} pinnedProfileRef={pinnedProfileRef} />
       </div>
       <div className={tab === "favorites" ? "" : "hidden"}>
         <FavoritesList activeProfileId={activeProfileId} />
