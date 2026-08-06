@@ -49,17 +49,6 @@ supabase gen types typescript --linked > packages/shared/src/types/db.ts
 
 ## Status
 
-Build phases and what's done so far are tracked against the project plan.
-
-- **Phase 0 (foundations)** — done. Repo scaffold, SPA-mode routing,
-  magic-link auth flow, base design system, Fastify API skeleton
-  (`apps/api`) with an auth plugin, health check, CORS, and security headers.
-- **Phase 1 (schema + RLS)** — done. All tables/RPCs/policies in
-  `supabase/migrations`, verified by applying them against a throwaway local
-  Postgres instance (deny-by-default grants, RLS filtering, and the
-  `search_profiles` RPC's guard clause all confirmed to behave correctly).
-  Not yet pushed to the real hosted Supabase project — run `supabase db push`
-  once the project exists, before Phase 2.
-
-Profile/discovery/messaging/Stripe/admin features and their `apps/api`
-routes are placeholders until their respective phases land.
+See [PROJECT_STATUS.md](./PROJECT_STATUS.md) for what's built, what's
+deliberately deferred, and where to look for each piece — kept up to date
+as the project progresses rather than duplicated here.
