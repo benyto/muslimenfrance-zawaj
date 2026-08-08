@@ -240,12 +240,12 @@ export default function ChatWithProfile() {
             "Ne plus ignorer" there. */}
         <IconButton
           label={isIgnored ? "Débloquer" : "Bloquer"}
-          size="sm"
+          size="md"
           onClick={() =>
             isIgnored ? unignoreProfile.mutate(otherProfileId!) : setShowBlockConfirm(true)
           }
         >
-          <Ban className={cn("h-4 w-4", isIgnored && "text-danger")} />
+          <Ban className="h-6 w-6 text-danger" />
         </IconButton>
       </header>
 
