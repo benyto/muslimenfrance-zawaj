@@ -1,6 +1,7 @@
 import { Link } from "react-router";
 import { Heart } from "lucide-react";
-import { useFavorites, useRemoveFavorite } from "~/lib/queries/useFavorites";
+import { useFavorites, useRemoveFavorite, type Favorite } from "~/lib/queries/useFavorites";
+import { usePresenceStatus } from "~/lib/realtime/usePresence";
 import { photoUrl } from "~/lib/queries/usePhotos";
 import { cn } from "~/lib/cn";
 import { Avatar, EmptyState, Skeleton } from "~/components/ui/primitives";
@@ -51,48 +52,69 @@ export function FavoritesList({ activeProfileId }: { activeProfileId?: string })
         </span>
       </div>
       <ul className="flex flex-col divide-y divide-line">
-        {favorites.map((f) => {
-          const isActive = f.favorited_profile_id === activeProfileId;
-          return (
-            <li key={f.favorited_profile_id} className="relative">
-              {isActive && (
-                <span className="absolute inset-y-0 left-0 w-0.5 bg-accent" aria-hidden="true" />
-              )}
-              <div
-                className={cn(
-                  "flex items-center gap-2 px-4 py-4 transition-colors",
-                  isActive ? "bg-primary-soft" : "hover:bg-sunken"
-                )}
-              >
-                <Link
-                  to={`/messages/${f.favorited_profile_id}`}
-                  aria-current={isActive ? "page" : undefined}
-                  className="flex min-w-0 flex-1 items-center gap-3"
-                >
-                  <Avatar
-                    src={f.photo_key ? photoUrl(f.photo_key) : null}
-                    name={f.nickname ?? "?"}
-                    size="lg"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-base font-medium text-ink">{f.nickname}</p>
-                    {f.commune_nom && <p className="truncate text-sm text-muted">{f.commune_nom}</p>}
-                  </div>
-                </Link>
-                <button
-                  type="button"
-                  onClick={() => removeFavorite.mutate(f.favorited_profile_id)}
-                  disabled={removeFavorite.isPending}
-                  aria-label={`Retirer ${f.nickname} des favoris`}
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-romantic transition-colors hover:bg-romantic-soft disabled:opacity-50"
-                >
-                  <Heart className="h-4 w-4" fill="currentColor" aria-hidden="true" />
-                </button>
-              </div>
-            </li>
-          );
-        })}
+        {favorites.map((f) => (
+          <FavoriteRow
+            key={f.favorited_profile_id}
+            favorite={f}
+            isActive={f.favorited_profile_id === activeProfileId}
+            onRemove={() => removeFavorite.mutate(f.favorited_profile_id)}
+            removePending={removeFavorite.isPending}
+          />
+        ))}
       </ul>
     </div>
+  );
+}
+
+// Own component so usePresenceStatus (a hook) gets one call site per row.
+function FavoriteRow({
+  favorite: f,
+  isActive,
+  onRemove,
+  removePending,
+}: {
+  favorite: Favorite;
+  isActive: boolean;
+  onRemove: () => void;
+  removePending: boolean;
+}) {
+  const presence = usePresenceStatus(f.last_seen_at);
+
+  return (
+    <li className="relative">
+      {isActive && <span className="absolute inset-y-0 left-0 w-0.5 bg-accent" aria-hidden="true" />}
+      <div
+        className={cn(
+          "flex items-center gap-2 px-4 py-4 transition-colors",
+          isActive ? "bg-primary-soft" : "hover:bg-sunken"
+        )}
+      >
+        <Link
+          to={`/messages/${f.favorited_profile_id}`}
+          aria-current={isActive ? "page" : undefined}
+          className="flex min-w-0 flex-1 items-center gap-3"
+        >
+          <Avatar
+            src={f.photo_key ? photoUrl(f.photo_key) : null}
+            name={f.nickname ?? "?"}
+            size="lg"
+            presence={presence}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-base font-medium text-ink">{f.nickname}</p>
+            {f.commune_nom && <p className="truncate text-sm text-muted">{f.commune_nom}</p>}
+          </div>
+        </Link>
+        <button
+          type="button"
+          onClick={onRemove}
+          disabled={removePending}
+          aria-label={`Retirer ${f.nickname} des favoris`}
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-romantic transition-colors hover:bg-romantic-soft disabled:opacity-50"
+        >
+          <Heart className="h-4 w-4" fill="currentColor" aria-hidden="true" />
+        </button>
+      </div>
+    </li>
   );
 }

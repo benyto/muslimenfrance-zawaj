@@ -213,38 +213,68 @@ const avatarSizes = {
   xl: "h-20 w-20 text-xl",
 };
 
+const presenceDotSizes = {
+  sm: "h-2 w-2",
+  md: "h-2.5 w-2.5",
+  lg: "h-3 w-3",
+  xl: "h-4 w-4",
+};
+
 // Fallback is the star tile with an initial, replacing an empty grey circle
 // in the conversation list and a `?` glyph at ~1.5:1 contrast on cards.
+// presence is undefined for "no badge at all" (the target has status
+// sharing off, or the viewer does) — not a third colour, an absence of one.
 export function Avatar({
   src,
   name,
   size = "md",
+  presence,
   className,
 }: {
   src?: string | null;
   name: string;
   size?: keyof typeof avatarSizes;
+  presence?: "online" | "offline";
   className?: string;
 }) {
   return (
-    <span
-      className={cn(
-        "relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft",
-        avatarSizes[size],
-        className
-      )}
-    >
-      {src ? (
-        <img
-          src={src}
-          alt={`Photo de ${name}`}
-          loading="lazy"
-          className="h-full w-full object-cover"
-        />
-      ) : (
+    <span className={cn("relative inline-flex shrink-0", className)}>
+      <span
+        className={cn(
+          "relative flex items-center justify-center overflow-hidden rounded-full bg-primary-soft",
+          avatarSizes[size]
+        )}
+      >
+        {src ? (
+          <img
+            src={src}
+            alt={`Photo de ${name}`}
+            loading="lazy"
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <>
+            <StarMark className="absolute h-full w-full text-accent/15" />
+            <span className="relative font-serif text-primary">{initialsOf(name)}</span>
+          </>
+        )}
+      </span>
+      {presence && (
         <>
-          <StarMark className="absolute h-full w-full text-accent/15" />
-          <span className="relative font-serif text-primary">{initialsOf(name)}</span>
+          {/* ring-raised, not ring-surface: this needs to match whatever's
+              actually behind the avatar (a card, a sheet, a raised panel),
+              and bg-raised is the nearest approximation available as a
+              single token without threading the real background through
+              every caller. */}
+          <span
+            className={cn(
+              "absolute bottom-0 right-0 rounded-full ring-2 ring-raised",
+              presenceDotSizes[size],
+              presence === "online" ? "bg-success" : "bg-line-strong"
+            )}
+            aria-hidden="true"
+          />
+          <span className="sr-only">{presence === "online" ? `${name} est en ligne` : `${name} est hors ligne`}</span>
         </>
       )}
     </span>

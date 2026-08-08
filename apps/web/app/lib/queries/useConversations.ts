@@ -1,5 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
+import type { Database } from "@rencontre/shared";
 import { supabase } from "~/lib/supabase-client";
+
+export type Conversation = Database["public"]["Functions"]["get_my_conversations"]["Returns"][number];
 
 export function useConversations() {
   return useQuery({

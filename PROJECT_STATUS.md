@@ -40,6 +40,16 @@ rationale and decision log, see the plan file the project was built from.
 - **Messaging**: 1:1 conversations, Supabase Realtime delivery, typing
   presence, read receipts, unread counts, inbox-wide new-message toasts.
 - **Favorites**: bookmark a profile, tabbed sidebar (Contacts / Favoris).
+- **Presence**: WhatsApp-style online/offline badges (green/grey/none), via
+  a `last_seen_at` heartbeat (`useLastSeenHeartbeat`, ~60s while the tab is
+  visible) rather than a realtime channel — a global Presence channel's
+  join/leave/sync fan-out bills per-subscriber-per-event on Supabase, so
+  cost scales with concurrent users × churn; a plain timestamp column has
+  none of that. "Online" is just "seen in the last 2 minutes"
+  (`usePresenceStatus`). Reciprocity (off ⇒ you neither show nor see) is
+  enforced server-side in `get_my_conversations`/`get_my_favorites`/
+  `get_profile_detail`, which null out the timestamp unless both sides have
+  it on. Toggle lives in Settings (`profiles.show_online_status`).
 - **Stripe**: checkout, billing portal, webhook handling with idempotency,
   trial period. Currently **free-launch mode** — no `subscription_products`
   row is `enabled`, so messaging is free for everyone until pricing is

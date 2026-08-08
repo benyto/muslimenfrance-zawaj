@@ -2,9 +2,10 @@ import { Link } from "react-router";
 import type { RefObject } from "react";
 import { formatDistanceToNowStrict } from "date-fns";
 import { fr } from "date-fns/locale";
-import { useConversations } from "~/lib/queries/useConversations";
+import { useConversations, type Conversation } from "~/lib/queries/useConversations";
 import { useMyProfile } from "~/lib/queries/useMyProfile";
 import { useInboxSubscription } from "~/lib/realtime/useInboxSubscription";
+import { usePresenceStatus } from "~/lib/realtime/usePresence";
 import { photoUrl } from "~/lib/queries/usePhotos";
 import { cn } from "~/lib/cn";
 import { Avatar, EmptyState, Skeleton } from "~/components/ui/primitives";
@@ -70,78 +71,88 @@ export function ConversationsList({
         )}
       </div>
       <ul className="flex flex-col divide-y divide-line">
-        {conversations.map((c) => {
-          const isActive = c.other_profile_id === activeProfileId;
-          const unread = Number(c.unread_count ?? 0);
-          // last_message_at and last_message_sender_profile_id were already
-          // being fetched by the RPC and thrown away — both are used now.
-          const sentByMe = c.last_message_sender_profile_id === myProfile?.id;
-
-          return (
-            <li key={c.conversation_id} className="relative">
-              {isActive && (
-                <span
-                  className="absolute inset-y-0 left-0 w-0.5 bg-accent"
-                  aria-hidden="true"
-                />
-              )}
-              <Link
-                to={`/messages/${c.other_profile_id}`}
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "flex items-center gap-3 px-4 py-4 transition-colors",
-                  isActive ? "bg-primary-soft" : "hover:bg-sunken"
-                )}
-              >
-                <Avatar
-                  src={c.other_photo_key ? photoUrl(c.other_photo_key) : null}
-                  name={c.other_nickname ?? "?"}
-                  size="lg"
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <p
-                      className={cn(
-                        "truncate text-base",
-                        unread > 0 ? "font-semibold text-ink" : "font-medium text-ink"
-                      )}
-                    >
-                      {c.other_nickname}
-                    </p>
-                    {c.last_message_at && (
-                      <time
-                        dateTime={c.last_message_at}
-                        className="tabular shrink-0 font-mono text-xs text-muted"
-                      >
-                        {formatDistanceToNowStrict(new Date(c.last_message_at), {
-                          locale: fr,
-                          addSuffix: false,
-                        })}
-                      </time>
-                    )}
-                  </div>
-                  <div className="flex items-center justify-between gap-2">
-                    <p
-                      className={cn(
-                        "truncate text-sm",
-                        unread > 0 ? "text-ink" : "text-muted"
-                      )}
-                    >
-                      {sentByMe && <span className="text-muted">Vous : </span>}
-                      {c.last_message_content}
-                    </p>
-                    {unread > 0 && (
-                      <span className="tabular shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-xs font-semibold leading-none text-ink">
-                        {unread > 9 ? "9+" : unread}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            </li>
-          );
-        })}
+        {conversations.map((c) => (
+          <ConversationRow
+            key={c.conversation_id}
+            conversation={c}
+            isActive={c.other_profile_id === activeProfileId}
+            sentByMe={c.last_message_sender_profile_id === myProfile?.id}
+          />
+        ))}
       </ul>
     </div>
+  );
+}
+
+// Its own component, not inlined in the .map() above, because
+// usePresenceStatus is a hook — it needs one call site per row, which a
+// callback inside .map() can't provide.
+function ConversationRow({
+  conversation: c,
+  isActive,
+  sentByMe,
+}: {
+  conversation: Conversation;
+  isActive: boolean;
+  sentByMe: boolean;
+}) {
+  const unread = Number(c.unread_count ?? 0);
+  const presence = usePresenceStatus(c.other_last_seen_at);
+
+  return (
+    <li className="relative">
+      {isActive && (
+        <span className="absolute inset-y-0 left-0 w-0.5 bg-accent" aria-hidden="true" />
+      )}
+      <Link
+        to={`/messages/${c.other_profile_id}`}
+        aria-current={isActive ? "page" : undefined}
+        className={cn(
+          "flex items-center gap-3 px-4 py-4 transition-colors",
+          isActive ? "bg-primary-soft" : "hover:bg-sunken"
+        )}
+      >
+        <Avatar
+          src={c.other_photo_key ? photoUrl(c.other_photo_key) : null}
+          name={c.other_nickname ?? "?"}
+          size="lg"
+          presence={presence}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <p
+              className={cn(
+                "truncate text-base",
+                unread > 0 ? "font-semibold text-ink" : "font-medium text-ink"
+              )}
+            >
+              {c.other_nickname}
+            </p>
+            {c.last_message_at && (
+              <time
+                dateTime={c.last_message_at}
+                className="tabular shrink-0 font-mono text-xs text-muted"
+              >
+                {formatDistanceToNowStrict(new Date(c.last_message_at), {
+                  locale: fr,
+                  addSuffix: false,
+                })}
+              </time>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <p className={cn("truncate text-sm", unread > 0 ? "text-ink" : "text-muted")}>
+              {sentByMe && <span className="text-muted">Vous : </span>}
+              {c.last_message_content}
+            </p>
+            {unread > 0 && (
+              <span className="tabular shrink-0 rounded-full bg-accent px-1.5 py-0.5 text-xs font-semibold leading-none text-ink">
+                {unread > 9 ? "9+" : unread}
+              </span>
+            )}
+          </div>
+        </div>
+      </Link>
+    </li>
   );
 }

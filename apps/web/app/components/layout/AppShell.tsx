@@ -5,6 +5,7 @@ import { useConversations } from "~/lib/queries/useConversations";
 import { useMyProfile } from "~/lib/queries/useMyProfile";
 import { usePhotos } from "~/lib/queries/usePhotos";
 import { computeProfileCompletion, PROFILE_COMPLETION_THRESHOLD } from "~/lib/profile-completion";
+import { useLastSeenHeartbeat } from "~/lib/realtime/usePresence";
 import { cn } from "~/lib/cn";
 import { StarMark } from "~/components/ui/star";
 import { IconButton } from "~/components/ui/button";
@@ -33,6 +34,10 @@ export default function AppShell() {
   const { data: photos } = usePhotos(profile?.id);
   const isProfileIncomplete =
     computeProfileCompletion(profile, photos?.length ?? 0) < PROFILE_COMPLETION_THRESHOLD;
+
+  // Mounted once, here — one heartbeat interval per session is enough;
+  // mounting it per-component would just multiply writes for no benefit.
+  useLastSeenHeartbeat(profile?.id, profile?.show_online_status ?? true);
 
   // An open conversation is a focused mode: the composer needs the bottom
   // edge, so the tab bar steps aside rather than competing with it.

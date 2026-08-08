@@ -8,10 +8,12 @@ import {
   useOpenBillingPortal,
 } from "~/lib/queries/useSubscription";
 import { useExportData, useDeleteAccount } from "~/lib/queries/useGdpr";
+import { useMyProfile, useUpdatePresenceVisibility } from "~/lib/queries/useMyProfile";
 import { supabase } from "~/lib/supabase-client";
 import { useTheme, type ThemePreference } from "~/lib/theme";
 import { Card, Badge, Chip, Skeleton } from "~/components/ui/primitives";
 import { Button } from "~/components/ui/button";
+import { Checkbox } from "~/components/ui/form";
 import { ConfirmDialog } from "~/components/ui/sheet";
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
@@ -202,6 +204,39 @@ function PrivacySection() {
   );
 }
 
+function PresenceSection() {
+  const { data: profile, isLoading } = useMyProfile();
+  const updateVisibility = useUpdatePresenceVisibility();
+
+  if (isLoading) {
+    return (
+      <Card className="p-6">
+        <SectionHeading>Statut en ligne</SectionHeading>
+        <Skeleton className="h-5 w-64" />
+      </Card>
+    );
+  }
+
+  return (
+    <Card className="p-6">
+      <SectionHeading>Statut en ligne</SectionHeading>
+      <Checkbox
+        label="Afficher mon statut en ligne"
+        checked={profile?.show_online_status ?? true}
+        onChange={(e) => updateVisibility.mutate(e.target.checked)}
+        disabled={updateVisibility.isPending}
+      />
+      <p className="mt-2 text-sm text-muted">
+        Comme sur WhatsApp : si vous désactivez cette option, les autres membres ne verront plus quand
+        vous êtes en ligne — mais vous ne verrez plus non plus leur statut à eux.
+      </p>
+      {updateVisibility.isError && (
+        <p className="mt-2 text-sm text-danger">{(updateVisibility.error as Error).message}</p>
+      )}
+    </Card>
+  );
+}
+
 const themeOptions: { value: ThemePreference; label: string }[] = [
   { value: "light", label: "Clair" },
   { value: "dark", label: "Sombre" },
@@ -239,6 +274,7 @@ export default function Settings() {
         <h1 className="font-serif text-2xl text-ink">Réglages</h1>
       </div>
       <AppearanceSection />
+      <PresenceSection />
       <SubscriptionSection />
       <BlockedUsers />
       <PrivacySection />

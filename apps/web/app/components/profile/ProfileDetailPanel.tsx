@@ -18,6 +18,7 @@ import {
 import { useProfileDetail } from "~/lib/queries/useProfileDetail";
 import { useBlockProfile } from "~/lib/queries/useBlockActions";
 import { useAddFavorite, useIsFavorited, useRemoveFavorite } from "~/lib/queries/useFavorites";
+import { usePresenceStatus } from "~/lib/realtime/usePresence";
 import { photoUrl } from "~/lib/queries/usePhotos";
 import { ReportForm } from "~/components/discovery/ReportForm";
 import { cn } from "~/lib/cn";
@@ -60,6 +61,7 @@ export function ProfileDetailPanel({
   variant?: "flow" | "panel";
 }) {
   const { data: profile, isLoading, isError, error } = useProfileDetail(profileId);
+  const presence = usePresenceStatus(profile?.last_seen_at);
   const blockProfile = useBlockProfile();
   const isFavorited = useIsFavorited(profileId);
   const addFavorite = useAddFavorite();
@@ -116,9 +118,19 @@ export function ProfileDetailPanel({
 
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold">
+          <h1 className="flex items-center gap-2 text-xl font-semibold">
             {profile.nickname}, {profile.age}
+            {presence === "online" && (
+              <span
+                className="h-2 w-2 shrink-0 rounded-full bg-success"
+                aria-label="En ligne"
+                title="En ligne"
+              />
+            )}
           </h1>
+          {presence && (
+            <p className="text-xs text-muted">{presence === "online" ? "En ligne" : "Hors ligne"}</p>
+          )}
           {profile.commune_nom && (
             <p className="mt-0.5 text-sm text-muted">
               {profile.commune_nom}

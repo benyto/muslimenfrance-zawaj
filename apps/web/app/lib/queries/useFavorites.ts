@@ -1,6 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { Database } from "@rencontre/shared";
 import { supabase } from "~/lib/supabase-client";
 import { useMyProfile } from "~/lib/queries/useMyProfile";
+
+export type Favorite = Database["public"]["Functions"]["get_my_favorites"]["Returns"][number];
 
 export function useFavorites() {
   return useQuery({

@@ -500,6 +500,7 @@ export type Database = {
           income_range: string | null
           interests: string[]
           languages_spoken: string[]
+          last_seen_at: string | null
           looking_for: string | null
           moderated_at: string | null
           moderated_by: string | null
@@ -511,6 +512,7 @@ export type Database = {
           relationship_goal: string | null
           religion: string | null
           religiosity_level: string | null
+          show_online_status: boolean
           smoker: string | null
           special_category_consent: boolean
           special_category_consent_at: string | null
@@ -539,6 +541,7 @@ export type Database = {
           income_range?: string | null
           interests?: string[]
           languages_spoken?: string[]
+          last_seen_at?: string | null
           looking_for?: string | null
           moderated_at?: string | null
           moderated_by?: string | null
@@ -550,6 +553,7 @@ export type Database = {
           relationship_goal?: string | null
           religion?: string | null
           religiosity_level?: string | null
+          show_online_status?: boolean
           smoker?: string | null
           special_category_consent?: boolean
           special_category_consent_at?: string | null
@@ -578,6 +582,7 @@ export type Database = {
           income_range?: string | null
           interests?: string[]
           languages_spoken?: string[]
+          last_seen_at?: string | null
           looking_for?: string | null
           moderated_at?: string | null
           moderated_by?: string | null
@@ -589,6 +594,7 @@ export type Database = {
           relationship_goal?: string | null
           religion?: string | null
           religiosity_level?: string | null
+          show_online_status?: boolean
           smoker?: string | null
           special_category_consent?: boolean
           special_category_consent_at?: string | null
@@ -890,6 +896,7 @@ export type Database = {
           last_message_at: string
           last_message_content: string
           last_message_sender_profile_id: string
+          other_last_seen_at: string
           other_nickname: string
           other_photo_key: string
           other_profile_id: string
@@ -902,6 +909,7 @@ export type Database = {
           commune_nom: string
           favorited_at: string
           favorited_profile_id: string
+          last_seen_at: string
           nickname: string
           photo_key: string
         }[]
@@ -929,6 +937,7 @@ export type Database = {
           income_range: string
           interests: string[]
           languages_spoken: string[]
+          last_seen_at: string
           looking_for: string
           nickname: string
           occupation: string

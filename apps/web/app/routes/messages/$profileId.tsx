@@ -8,6 +8,7 @@ import { useConversationMessages, flattenMessagePages } from "~/lib/queries/useC
 import { useSendMessage } from "~/lib/queries/useSendMessage";
 import { useMarkAsRead } from "~/lib/queries/useMarkAsRead";
 import { useTypingIndicator } from "~/lib/realtime/useTypingIndicator";
+import { usePresenceStatus } from "~/lib/realtime/usePresence";
 import { photoUrl } from "~/lib/queries/usePhotos";
 import { cn } from "~/lib/cn";
 import { Avatar, Divider, EmptyState, Skeleton } from "~/components/ui/primitives";
@@ -44,6 +45,7 @@ export default function ChatWithProfile() {
   const { pinnedProfileRef } = useOutletContext<ChatOutletContext>();
   const { data: myProfile } = useMyProfile();
   const { data: otherProfile } = useProfileDetail(otherProfileId);
+  const presence = usePresenceStatus(otherProfile?.last_seen_at);
   const { data: conversationId, isLoading: conversationLoading } = useConversationWithProfile(
     myProfile?.id,
     otherProfileId
@@ -200,10 +202,18 @@ export default function ChatWithProfile() {
             src={otherProfile?.photo_keys?.[0] ? photoUrl(otherProfile.photo_keys[0]) : null}
             name={otherProfile?.nickname ?? "?"}
             size="md"
+            presence={presence}
           />
           {otherProfile?.nickname ? (
-            <span className="block min-w-0 truncate font-serif text-xl text-ink">
-              {otherProfile.nickname}
+            <span className="min-w-0">
+              <span className="block truncate font-serif text-xl leading-tight text-ink">
+                {otherProfile.nickname}
+              </span>
+              {presence && (
+                <span className="block text-xs text-muted">
+                  {presence === "online" ? "En ligne" : "Hors ligne"}
+                </span>
+              )}
             </span>
           ) : (
             <Skeleton className="h-5 w-28" />
