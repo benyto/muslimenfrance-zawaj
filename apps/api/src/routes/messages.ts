@@ -6,33 +6,38 @@ import { sendEmail } from "../lib/email/send.js";
 import { newMessageEmail } from "../lib/email/templates.js";
 import { userRateLimit } from "../lib/user-rate-limit.js";
 
-const NOTIFICATION_COOLDOWN_MS = 15 * 60 * 1000;
-
 async function maybeSendNewMessageEmail(params: {
   conversationId: string;
   senderNickname: string;
   recipientProfileId: string;
   messageContent: string;
 }) {
+  // The recipient's own prefs — opt-in and cooldown are both theirs to set
+  // (Réglages > Notifications), not the sender's.
+  const { data: recipientProfile } = await supabaseAdmin
+    .from("profiles")
+    .select(
+      "user_id, nickname, email_new_message_notifications, email_new_message_cooldown_minutes"
+    )
+    .eq("id", params.recipientProfileId)
+    .single();
+  if (!recipientProfile || !recipientProfile.email_new_message_notifications) {
+    return;
+  }
+
   const { data: conversation } = await supabaseAdmin
     .from("conversations")
     .select("last_notification_email_sent_at")
     .eq("id", params.conversationId)
     .single();
 
+  const cooldownMs = recipientProfile.email_new_message_cooldown_minutes * 60 * 1000;
   const lastSent = conversation?.last_notification_email_sent_at
     ? new Date(conversation.last_notification_email_sent_at).getTime()
     : 0;
-  if (Date.now() - lastSent < NOTIFICATION_COOLDOWN_MS) {
+  if (Date.now() - lastSent < cooldownMs) {
     return;
   }
-
-  const { data: recipientProfile } = await supabaseAdmin
-    .from("profiles")
-    .select("user_id, nickname")
-    .eq("id", params.recipientProfileId)
-    .single();
-  if (!recipientProfile) return;
 
   const recipientEmail = await getUserEmail(recipientProfile.user_id);
   if (!recipientEmail) return;

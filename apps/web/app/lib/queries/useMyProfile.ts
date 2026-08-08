@@ -39,3 +39,26 @@ export function useUpdatePresenceVisibility() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["my-profile"] }),
   });
 }
+
+// Same rationale as useUpdatePresenceVisibility — a Settings-only toggle,
+// not a profile field. Enabled + cooldown are saved together since the
+// cooldown select is meaningless (and hidden) while notifications are off.
+export function useUpdateEmailNotificationPrefs() {
+  const { session } = useSession();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (prefs: { enabled: boolean; cooldownMinutes: number }) => {
+      if (!session) throw new Error("Not authenticated");
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          email_new_message_notifications: prefs.enabled,
+          email_new_message_cooldown_minutes: prefs.cooldownMinutes,
+        })
+        .eq("user_id", session.user.id);
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["my-profile"] }),
+  });
+}

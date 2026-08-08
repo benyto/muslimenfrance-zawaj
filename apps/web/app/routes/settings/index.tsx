@@ -8,12 +8,16 @@ import {
   useOpenBillingPortal,
 } from "~/lib/queries/useSubscription";
 import { useExportData, useDeleteAccount } from "~/lib/queries/useGdpr";
-import { useMyProfile, useUpdatePresenceVisibility } from "~/lib/queries/useMyProfile";
+import {
+  useMyProfile,
+  useUpdatePresenceVisibility,
+  useUpdateEmailNotificationPrefs,
+} from "~/lib/queries/useMyProfile";
 import { supabase } from "~/lib/supabase-client";
 import { useTheme, type ThemePreference } from "~/lib/theme";
 import { Card, Badge, Chip, Skeleton } from "~/components/ui/primitives";
 import { Button } from "~/components/ui/button";
-import { Checkbox } from "~/components/ui/form";
+import { Checkbox, Field, Select } from "~/components/ui/form";
 import { ConfirmDialog } from "~/components/ui/sheet";
 
 function SectionHeading({ children }: { children: React.ReactNode }) {
@@ -237,6 +241,71 @@ function PresenceSection() {
   );
 }
 
+const cooldownOptions = [
+  { value: 0, label: "Immédiat (à chaque message)" },
+  { value: 15, label: "15 minutes" },
+  { value: 30, label: "30 minutes" },
+  { value: 60, label: "1 heure" },
+  { value: 180, label: "3 heures" },
+  { value: 1440, label: "24 heures" },
+];
+
+function EmailNotificationsSection() {
+  const { data: profile, isLoading } = useMyProfile();
+  const updatePrefs = useUpdateEmailNotificationPrefs();
+
+  if (isLoading) {
+    return (
+      <Card className="p-6">
+        <SectionHeading>Notifications par email</SectionHeading>
+        <Skeleton className="h-5 w-64" />
+      </Card>
+    );
+  }
+
+  const enabled = profile?.email_new_message_notifications ?? true;
+  const cooldownMinutes = profile?.email_new_message_cooldown_minutes ?? 15;
+
+  return (
+    <Card className="p-6">
+      <SectionHeading>Notifications par email</SectionHeading>
+      <Checkbox
+        label="Recevoir un email pour les nouveaux messages"
+        checked={enabled}
+        onChange={(e) => updatePrefs.mutate({ enabled: e.target.checked, cooldownMinutes })}
+        disabled={updatePrefs.isPending}
+      />
+      {enabled && (
+        <div className="mt-4">
+          <Field label="Délai minimum entre deux emails, par conversation" full>
+            {(fieldProps) => (
+              <Select
+                {...fieldProps}
+                value={cooldownMinutes}
+                onChange={(e) => updatePrefs.mutate({ enabled, cooldownMinutes: Number(e.target.value) })}
+                disabled={updatePrefs.isPending}
+              >
+                {cooldownOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            )}
+          </Field>
+        </div>
+      )}
+      <p className="mt-2 text-sm text-muted">
+        Pour éviter de recevoir un email par message, l&apos;envoi est espacé d&apos;au moins ce délai
+        pour chaque conversation.
+      </p>
+      {updatePrefs.isError && (
+        <p className="mt-2 text-sm text-danger">{(updatePrefs.error as Error).message}</p>
+      )}
+    </Card>
+  );
+}
+
 const themeOptions: { value: ThemePreference; label: string }[] = [
   { value: "light", label: "Clair" },
   { value: "dark", label: "Sombre" },
@@ -275,6 +344,7 @@ export default function Settings() {
       </div>
       <AppearanceSection />
       <PresenceSection />
+      <EmailNotificationsSection />
       <SubscriptionSection />
       <BlockedUsers />
       <PrivacySection />

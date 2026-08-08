@@ -55,7 +55,12 @@ rationale and decision log, see the plan file the project was built from.
   row is `enabled`, so messaging is free for everyone until pricing is
   turned on (flip `enabled` in `/admin/subscriptions`, no redeploy needed).
 - **Email**: Resend templates for new-message, subscription lifecycle,
-  moderation outcomes, reports.
+  moderation outcomes, reports. New-message notifications are per-profile
+  configurable in Settings — opt-in toggle plus a cooldown (Immédiat/15min/
+  30min/1h/3h/24h) per conversation, replacing the old hardcoded 15-minute
+  cooldown (`profiles.email_new_message_notifications` /
+  `email_new_message_cooldown_minutes`, read server-side in
+  `apps/api/src/routes/messages.ts`).
 - **Admin**: dedicated dashboard (see below).
 - **Geography**: full INSEE `communes_fr` dataset (~35k rows) replacing the
   original 5-row `cities` table, with region/department filtering and

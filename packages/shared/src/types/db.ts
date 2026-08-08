@@ -489,6 +489,8 @@ export type Database = {
           deleted_at: string | null
           drinker: string | null
           education_level: string | null
+          email_new_message_cooldown_minutes: number
+          email_new_message_notifications: boolean
           employment_status: string | null
           ethnicity: string | null
           eye_color: string | null
@@ -530,6 +532,8 @@ export type Database = {
           deleted_at?: string | null
           drinker?: string | null
           education_level?: string | null
+          email_new_message_cooldown_minutes?: number
+          email_new_message_notifications?: boolean
           employment_status?: string | null
           ethnicity?: string | null
           eye_color?: string | null
@@ -571,6 +575,8 @@ export type Database = {
           deleted_at?: string | null
           drinker?: string | null
           education_level?: string | null
+          email_new_message_cooldown_minutes?: number
+          email_new_message_notifications?: boolean
           employment_status?: string | null
           ethnicity?: string | null
           eye_color?: string | null
