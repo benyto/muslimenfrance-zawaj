@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router";
-import { ArrowLeft, Ban, Check, CheckCheck, SendHorizontal } from "lucide-react";
+import { ArrowLeft, Ban, Check, CheckCheck, Flag, SendHorizontal } from "lucide-react";
 import { useMyProfile } from "~/lib/queries/useMyProfile";
 import { useProfileDetail } from "~/lib/queries/useProfileDetail";
 import { useConversationWithProfile } from "~/lib/queries/useConversations";
@@ -10,12 +10,13 @@ import { useMarkAsRead } from "~/lib/queries/useMarkAsRead";
 import { useTypingIndicator } from "~/lib/realtime/useTypingIndicator";
 import { usePresenceStatus } from "~/lib/realtime/usePresence";
 import { useIgnoreProfile, useIsIgnored, useUnignoreProfile } from "~/lib/queries/useIgnoreActions";
+import { ReportForm } from "~/components/discovery/ReportForm";
 import { photoUrl } from "~/lib/queries/usePhotos";
 import { cn } from "~/lib/cn";
 import { Avatar, Divider, EmptyState, Skeleton } from "~/components/ui/primitives";
 import { IconButton } from "~/components/ui/button";
 import { EmojiPickerButton } from "~/components/ui/emoji-picker";
-import { ConfirmDialog } from "~/components/ui/sheet";
+import { ConfirmDialog, Sheet } from "~/components/ui/sheet";
 
 import { StarSpinner } from "~/components/ui/star";
 
@@ -54,6 +55,7 @@ export default function ChatWithProfile() {
   const ignoreProfile = useIgnoreProfile();
   const unignoreProfile = useUnignoreProfile();
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [showReportSheet, setShowReportSheet] = useState(false);
   const { data: conversationId, isLoading: conversationLoading } = useConversationWithProfile(
     myProfile?.id,
     otherProfileId
@@ -247,7 +249,21 @@ export default function ChatWithProfile() {
         >
           <Ban className="h-6 w-6 text-danger" />
         </IconButton>
+
+        {/* Was on ProfileDetailPanel before, toggling a form that rendered
+            at the bottom of a scrollable area behind the sticky action
+            bar — easy to trigger and never see, which read as "does
+            nothing". A Sheet makes the form impossible to miss. */}
+        <IconButton label="Signaler" size="md" onClick={() => setShowReportSheet(true)}>
+          <Flag className="h-5 w-5" />
+        </IconButton>
       </header>
+
+      <Sheet open={showReportSheet} onOpenChange={setShowReportSheet} title="Signaler ce profil">
+        {otherProfileId && (
+          <ReportForm profileId={otherProfileId} onDone={() => setShowReportSheet(false)} />
+        )}
+      </Sheet>
 
       <ConfirmDialog
         open={showBlockConfirm}

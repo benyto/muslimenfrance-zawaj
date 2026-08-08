@@ -21,7 +21,6 @@ import { useIgnoreProfile, useIsIgnored, useUnignoreProfile } from "~/lib/querie
 import { useAddFavorite, useIsFavorited, useRemoveFavorite } from "~/lib/queries/useFavorites";
 import { usePresenceStatus } from "~/lib/realtime/usePresence";
 import { photoUrl } from "~/lib/queries/usePhotos";
-import { ReportForm } from "~/components/discovery/ReportForm";
 import { cn } from "~/lib/cn";
 import { PhotoLightbox } from "~/components/ui/lightbox";
 
@@ -60,9 +59,9 @@ export function ProfileDetailPanel({
   variant?: "flow" | "panel";
   // For contexts that already supply their own chrome around the content —
   // e.g. the own-profile preview Sheet, opened from the edit form itself,
-  // where Contacter/Ignorer/Signaler/"Modifier mon profil" are all either
-  // impossible (you can't message or ignore yourself) or redundant (you're
-  // already on the edit form).
+  // where Contacter/Ignorer/"Modifier mon profil" are all either impossible
+  // (you can't message or ignore yourself) or redundant (you're already on
+  // the edit form).
   hideActions?: boolean;
 }) {
   const { data: profile, isLoading, isError, error } = useProfileDetail(profileId);
@@ -75,7 +74,6 @@ export function ProfileDetailPanel({
   const isFavorited = useIsFavorited(profileId);
   const addFavorite = useAddFavorite();
   const removeFavorite = useRemoveFavorite();
-  const [showReport, setShowReport] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   if (isLoading) return null;
@@ -224,8 +222,6 @@ export function ProfileDetailPanel({
         <DetailRow label="A des enfants" value={profile.has_children === null ? null : profile.has_children ? "Oui" : "Non"} />
         <DetailRow label="Souhaite des enfants" value={profile.wants_children ? wantsChildrenLabels[profile.wants_children] : null} />
       </dl>
-
-      {showReport && <ReportForm profileId={profile.id} onDone={() => setShowReport(false)} />}
     </div>
   );
 
@@ -254,13 +250,6 @@ export function ProfileDetailPanel({
         className="rounded-xl border border-line px-4 py-2 text-sm font-medium hover:bg-sunken disabled:opacity-60 dark:hover:bg-sunken"
       >
         {isIgnored ? "Ne plus ignorer" : "Ignorer"}
-      </button>
-      <button
-        type="button"
-        onClick={() => setShowReport((v) => !v)}
-        className="rounded-xl border border-line px-4 py-2 text-sm font-medium hover:bg-sunken dark:hover:bg-sunken"
-      >
-        Signaler
       </button>
     </>
   );
