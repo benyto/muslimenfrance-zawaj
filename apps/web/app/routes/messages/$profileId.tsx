@@ -194,9 +194,13 @@ export default function ChatWithProfile() {
           <ArrowLeft className="h-4 w-4" aria-hidden="true" />
         </Link>
 
+        {/* The right-hand panel already shows this exact profile at xl+
+            (same selectedProfileId derivation in MessagingWorkspaceLayout),
+            so navigating there on desktop would just replace this chat
+            thread with a "see the panel" placeholder — disabled there. */}
         <Link
           to={`/profile/${otherProfileId}`}
-          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl"
+          className="flex min-w-0 flex-1 items-center gap-3 rounded-xl xl:pointer-events-none"
         >
           <Avatar
             src={otherProfile?.photo_keys?.[0] ? photoUrl(otherProfile.photo_keys[0]) : null}

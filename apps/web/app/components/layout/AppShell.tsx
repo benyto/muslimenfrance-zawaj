@@ -50,7 +50,7 @@ export default function AppShell() {
 
   return (
     <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-30 border-b border-line bg-surface/85 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-line bg-raised shadow-sm">
         <div className="mx-auto flex w-full max-w-[1920px] items-center justify-between gap-4 px-4 py-3">
           <NavLink to="/discover" className="flex items-center gap-2">
             <StarMark className="h-5 w-5 text-accent" />

@@ -2,10 +2,12 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { ProfileForm } from "~/components/profile/ProfileForm";
 import { PhotoManager } from "~/components/profile/PhotoManager";
+import { ProfileDetailPanel } from "~/components/profile/ProfileDetailPanel";
 import { useMyProfile } from "~/lib/queries/useMyProfile";
 import { usePhotos } from "~/lib/queries/usePhotos";
 import { computeProfileCompletion, PROFILE_COMPLETION_THRESHOLD } from "~/lib/profile-completion";
 import { Card } from "~/components/ui/primitives";
+import { Sheet } from "~/components/ui/sheet";
 
 const statusLabels: Record<string, { label: string; className: string }> = {
   pending: { label: "En cours de vérification", className: "bg-warning-soft text-warning" },
@@ -26,11 +28,23 @@ export default function MyProfile() {
   // click. It comes back next time the page loads if the profile is still
   // under the threshold.
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <div>
-        <h1 className="text-xl font-semibold">Mon profil</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-xl font-semibold">Mon profil</h1>
+          {profile?.moderation_status === "approved" && (
+            <button
+              type="button"
+              onClick={() => setShowPreview(true)}
+              className="text-sm font-medium text-primary hover:underline"
+            >
+              Voir mon profil →
+            </button>
+          )}
+        </div>
         {status && (
           <span className={`mt-2 inline-block rounded-full px-3 py-1 text-xs font-medium ${status.className}`}>
             {status.label}
@@ -61,6 +75,18 @@ export default function MyProfile() {
       )}
       {profile && <PhotoManager profileId={profile.id} />}
       <ProfileForm completion={completion} />
+
+      {/* Same Sheet primitive as the discovery filters — a right-hand panel
+          rather than a navigation away from the form, so in-progress edits
+          are never at risk of being lost just to check how the profile
+          reads to other members. */}
+      {profile && (
+        <Sheet open={showPreview} onOpenChange={setShowPreview} title="Aperçu de mon profil">
+          {/* Mounted only while open, not just hidden — no reason to fire the
+              get_profile_detail fetch on every visit to this page. */}
+          {showPreview && <ProfileDetailPanel profileId={profile.id} hideActions />}
+        </Sheet>
+      )}
     </div>
   );
 }

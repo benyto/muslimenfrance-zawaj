@@ -4,10 +4,10 @@ import { ContactsSidebar } from "~/components/messaging/ContactsSidebar";
 import { ProfileDetailPanel } from "~/components/profile/ProfileDetailPanel";
 import type { ChatOutletContext } from "~/routes/messages/$profileId";
 
-// Desktop-only 3-column workspace wrapping /discover, /messages and
-// /messages/:profileId: a persistent contacts/favorites sidebar (left) and
-// profile preview (right) stay mounted across navigation between those
-// routes — only the center Outlet swaps.
+// Desktop-only 3-column workspace wrapping /discover, /messages,
+// /messages/:profileId and /profile/:id: a persistent contacts/favorites
+// sidebar (left) and profile preview (right) stay mounted across
+// navigation between those routes — only the center Outlet swaps.
 //
 // ContactsSidebar's Contacts tab (ConversationsList) owns a realtime
 // channel keyed by the caller's profile id (see useInboxSubscription) —
@@ -22,8 +22,9 @@ import type { ChatOutletContext } from "~/routes/messages/$profileId";
 // route.
 //
 // The "selected profile" for the right column is derived from the current
-// route rather than passed down explicitly: /messages/:profileId's param
-// directly, or /discover's ?preview= search param (set by ProfileCard).
+// route rather than passed down explicitly: /messages/:profileId's or
+// /profile/:id's param directly, or /discover's ?preview= search param
+// (set by ProfileCard).
 export default function MessagingWorkspaceLayout() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -39,12 +40,15 @@ export default function MessagingWorkspaceLayout() {
   const pinnedProfileRef = useRef<string | null>(null);
 
   const messagesMatch = location.pathname.match(/^\/messages\/([^/]+)$/);
+  const profileMatch = location.pathname.match(/^\/profile\/([^/]+)$/);
   const isMessagesIndex = location.pathname === "/messages";
   const selectedProfileId = messagesMatch
     ? messagesMatch[1]
-    : location.pathname === "/discover"
-      ? searchParams.get("preview")
-      : null;
+    : profileMatch
+      ? profileMatch[1]
+      : location.pathname === "/discover"
+        ? searchParams.get("preview")
+        : null;
 
   function clearPreview() {
     setSearchParams((prev) => {

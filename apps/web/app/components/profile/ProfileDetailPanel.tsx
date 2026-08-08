@@ -16,6 +16,7 @@ import {
   worldCountryNameByCode,
 } from "@rencontre/shared";
 import { useProfileDetail } from "~/lib/queries/useProfileDetail";
+import { useMyProfile } from "~/lib/queries/useMyProfile";
 import { useBlockProfile } from "~/lib/queries/useBlockActions";
 import { useAddFavorite, useIsFavorited, useRemoveFavorite } from "~/lib/queries/useFavorites";
 import { usePresenceStatus } from "~/lib/realtime/usePresence";
@@ -54,13 +55,22 @@ export function ProfileDetailPanel({
   onBlocked,
   onClose,
   variant = "flow",
+  hideActions = false,
 }: {
   profileId: string;
   onBlocked?: () => void;
   onClose?: () => void;
   variant?: "flow" | "panel";
+  // For contexts that already supply their own chrome around the content —
+  // e.g. the own-profile preview Sheet, opened from the edit form itself,
+  // where Contacter/Bloquer/Signaler/"Modifier mon profil" are all either
+  // impossible (you can't message or block yourself) or redundant (you're
+  // already on the edit form).
+  hideActions?: boolean;
 }) {
   const { data: profile, isLoading, isError, error } = useProfileDetail(profileId);
+  const { data: myProfile } = useMyProfile();
+  const isOwnProfile = !!myProfile && myProfile.id === profileId;
   const presence = usePresenceStatus(profile?.last_seen_at);
   const blockProfile = useBlockProfile();
   const isFavorited = useIsFavorited(profileId);
@@ -91,6 +101,12 @@ export function ProfileDetailPanel({
         >
           ← Retour
         </button>
+      )}
+
+      {isOwnProfile && (
+        <div className="rounded-xl border border-primary/30 bg-primary-soft px-4 py-3 text-sm text-primary">
+          Aperçu : voici comment votre profil apparaît aux autres membres.
+        </div>
       )}
 
       {profile.photo_keys && profile.photo_keys.length > 0 ? (
@@ -143,23 +159,25 @@ export function ProfileDetailPanel({
             </span>
           )}
         </div>
-        <button
-          type="button"
-          onClick={() =>
-            isFavorited ? removeFavorite.mutate(profile.id) : addFavorite.mutate(profile.id)
-          }
-          disabled={addFavorite.isPending || removeFavorite.isPending}
-          aria-pressed={isFavorited}
-          aria-label={isFavorited ? "Retirer des favoris" : "Ajouter aux favoris"}
-          className={cn(
-            "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors disabled:opacity-50",
-            isFavorited
-              ? "border-romantic/40 bg-romantic-soft text-romantic"
-              : "border-line text-muted hover:border-romantic/40 hover:bg-romantic-soft hover:text-romantic"
-          )}
-        >
-          <Heart className="h-5 w-5" fill={isFavorited ? "currentColor" : "none"} aria-hidden="true" />
-        </button>
+        {!isOwnProfile && (
+          <button
+            type="button"
+            onClick={() =>
+              isFavorited ? removeFavorite.mutate(profile.id) : addFavorite.mutate(profile.id)
+            }
+            disabled={addFavorite.isPending || removeFavorite.isPending}
+            aria-pressed={isFavorited}
+            aria-label={isFavorited ? "Retirer des favoris" : "Ajouter aux favoris"}
+            className={cn(
+              "inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border transition-colors disabled:opacity-50",
+              isFavorited
+                ? "border-romantic/40 bg-romantic-soft text-romantic"
+                : "border-line text-muted hover:border-romantic/40 hover:bg-romantic-soft hover:text-romantic"
+            )}
+          >
+            <Heart className="h-5 w-5" fill={isFavorited ? "currentColor" : "none"} aria-hidden="true" />
+          </button>
+        )}
       </div>
 
       {profile.bio && (
@@ -213,7 +231,14 @@ export function ProfileDetailPanel({
     </div>
   );
 
-  const actionButtons = (
+  const actionButtons = isOwnProfile ? (
+    <Link
+      to="/profile/me"
+      className="rounded-xl bg-primary px-4 py-2 text-sm font-medium text-on-primary"
+    >
+      Modifier mon profil
+    </Link>
+  ) : (
     <>
       <Link
         to={`/messages/${profile.id}`}
@@ -276,9 +301,11 @@ export function ProfileDetailPanel({
     return (
       <div className="flex h-full min-h-0 flex-col">
         <div className="min-h-0 flex-1 overflow-y-auto p-6">{content}</div>
-        <div className="flex flex-wrap items-center gap-3 border-t border-line bg-raised px-6 py-4">
-          {actionButtons}
-        </div>
+        {!hideActions && (
+          <div className="flex flex-wrap items-center gap-3 border-t border-line bg-raised px-6 py-4">
+            {actionButtons}
+          </div>
+        )}
         {blockConfirmDialog}
         {photoLightbox}
       </div>
@@ -292,9 +319,11 @@ export function ProfileDetailPanel({
           at sm and up it's hidden so bottom-0 is correct. This variant has
           no wrapping scrollport with its own padding (the page itself
           scrolls), so sticky-in-flow is unambiguous here. */}
-      <div className="sticky bottom-16 z-10 flex flex-wrap items-center gap-3 border-t border-line bg-raised py-4 shadow-[0_-8px_12px_-8px_rgb(0_0_0_/_0.12)] sm:bottom-0">
-        {actionButtons}
-      </div>
+      {!hideActions && (
+        <div className="sticky bottom-16 z-10 flex flex-wrap items-center gap-3 border-t border-line bg-raised py-4 shadow-[0_-8px_12px_-8px_rgb(0_0_0_/_0.12)] sm:bottom-0">
+          {actionButtons}
+        </div>
+      )}
       {blockConfirmDialog}
       {photoLightbox}
     </div>

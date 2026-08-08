@@ -16,9 +16,9 @@ export default [
         route("discover", "routes/discover/index.tsx"),
         route("messages", "routes/messages/index.tsx"),
         route("messages/:profileId", "routes/messages/$profileId.tsx"),
+        route("profile/:id", "routes/profile/$id.tsx"),
       ]),
       route("profile/me", "routes/profile/me.tsx"),
-      route("profile/:id", "routes/profile/$id.tsx"),
       route("settings", "routes/settings/index.tsx"),
     ]),
 
