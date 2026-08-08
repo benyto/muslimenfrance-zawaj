@@ -438,6 +438,42 @@ export type Database = {
           },
         ]
       }
+      profile_ignores: {
+        Row: {
+          created_at: string
+          id: string
+          ignored_profile_id: string
+          ignorer_profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ignored_profile_id: string
+          ignorer_profile_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ignored_profile_id?: string
+          ignorer_profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_ignores_ignored_profile_id_fkey"
+            columns: ["ignored_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "profile_ignores_ignorer_profile_id_fkey"
+            columns: ["ignorer_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_photos: {
         Row: {
           created_at: string
@@ -727,45 +763,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_blocks: {
-        Row: {
-          blocked_profile_id: string
-          blocker_profile_id: string
-          created_at: string
-          id: string
-          reason: string | null
-        }
-        Insert: {
-          blocked_profile_id: string
-          blocker_profile_id: string
-          created_at?: string
-          id?: string
-          reason?: string | null
-        }
-        Update: {
-          blocked_profile_id?: string
-          blocker_profile_id?: string
-          created_at?: string
-          id?: string
-          reason?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "user_blocks_blocked_profile_id_fkey"
-            columns: ["blocked_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_blocks_blocker_profile_id_fkey"
-            columns: ["blocker_profile_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       user_roles: {
         Row: {
           created_at: string
@@ -887,14 +884,6 @@ export type Database = {
           total_count: number
         }[]
       }
-      get_my_blocked_profiles: {
-        Args: never
-        Returns: {
-          blocked_at: string
-          blocked_profile_id: string
-          nickname: string
-        }[]
-      }
       get_my_conversations: {
         Args: never
         Returns: {
@@ -918,6 +907,14 @@ export type Database = {
           last_seen_at: string
           nickname: string
           photo_key: string
+        }[]
+      }
+      get_my_ignored_profiles: {
+        Args: never
+        Returns: {
+          ignored_at: string
+          ignored_profile_id: string
+          nickname: string
         }[]
       }
       get_my_roles: { Args: never; Returns: string[] }
@@ -963,8 +960,8 @@ export type Database = {
         Returns: boolean
       }
       is_admin_or_moderator: { Args: { p_user_id: string }; Returns: boolean }
-      is_profile_blocked: {
-        Args: { p_profile_a: string; p_profile_b: string }
+      is_profile_ignored: {
+        Args: { p_ignored_profile_id: string; p_ignorer_profile_id: string }
         Returns: boolean
       }
       search_profiles: {

@@ -41,12 +41,12 @@ export async function gdprRoutes(fastify: FastifyInstance) {
       let photos: unknown[] = [];
       let conversations: unknown[] = [];
       let messages: unknown[] = [];
-      let blocks: unknown[] = [];
+      let ignores: unknown[] = [];
       let reports: unknown[] = [];
       let subscriptions: unknown[] = [];
 
       if (profile) {
-        const [photosRes, conversationsRes, blocksRes, subscriptionsRes] =
+        const [photosRes, conversationsRes, ignoresRes, subscriptionsRes] =
           await Promise.all([
             supabaseAdmin
               .from("profile_photos")
@@ -57,11 +57,9 @@ export async function gdprRoutes(fastify: FastifyInstance) {
               .select("*")
               .or(`profile1_id.eq.${profile.id},profile2_id.eq.${profile.id}`),
             supabaseAdmin
-              .from("user_blocks")
+              .from("profile_ignores")
               .select("*")
-              .or(
-                `blocker_profile_id.eq.${profile.id},blocked_profile_id.eq.${profile.id}`,
-              ),
+              .eq("ignorer_profile_id", profile.id),
             supabaseAdmin
               .from("user_subscriptions")
               .select("*")
@@ -69,7 +67,7 @@ export async function gdprRoutes(fastify: FastifyInstance) {
           ]);
         photos = photosRes.data ?? [];
         conversations = conversationsRes.data ?? [];
-        blocks = blocksRes.data ?? [];
+        ignores = ignoresRes.data ?? [];
         subscriptions = subscriptionsRes.data ?? [];
 
         const { data: messagesData } = await supabaseAdmin
@@ -99,7 +97,7 @@ export async function gdprRoutes(fastify: FastifyInstance) {
         photos,
         conversations,
         messages,
-        blocks,
+        ignores,
         reports,
         subscriptions,
       };
@@ -109,7 +107,7 @@ export async function gdprRoutes(fastify: FastifyInstance) {
   // GDPR Art. 17 — right to erasure. Self-service account deletion: the
   // caller can only ever delete their own account (request.user.id, never
   // a body-supplied id). auth.admin.deleteUser cascades through every FK
-  // (profiles, photos, messages, blocks, reports, subscriptions,
+  // (profiles, photos, messages, ignores, reports, subscriptions,
   // gdpr_requests itself) — already verified end-to-end in earlier phases.
   fastify.post(
     "/gdpr/delete",

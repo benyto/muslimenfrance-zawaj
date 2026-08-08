@@ -1,8 +1,9 @@
-import { useEffect, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Database } from "@rencontre/shared";
 import { supabase } from "~/lib/supabase-client";
 import { useToast } from "~/components/ui/toast";
+import { useIgnoredProfileIds } from "~/lib/queries/useIgnoreActions";
 
 type Message = Database["public"]["Tables"]["messages"]["Row"];
 type ConversationSummary = Database["public"]["Functions"]["get_my_conversations"]["Returns"][number];
@@ -27,6 +28,18 @@ export function useInboxSubscription(
   const queryClient = useQueryClient();
   const toast = useToast();
 
+  // Ignoring someone doesn't stop their messages from being written (unlike
+  // a block, which the DB itself refuses) — get_my_conversations() already
+  // drops them from the list server-side, but this realtime handler fires
+  // straight off the INSERT and has to independently know not to react. A
+  // ref (not a dependency) so the channel doesn't need to resubscribe every
+  // time the ignored list changes.
+  const ignoredIds = useIgnoredProfileIds();
+  const ignoredIdsRef = useRef(ignoredIds);
+  useEffect(() => {
+    ignoredIdsRef.current = ignoredIds;
+  }, [ignoredIds]);
+
   useEffect(() => {
     if (!myProfileId) return;
 
@@ -42,6 +55,8 @@ export function useInboxSubscription(
         },
         (payload) => {
           const message = payload.new as Message;
+          if (ignoredIdsRef.current.has(message.sender_profile_id)) return;
+
           queryClient.invalidateQueries({ queryKey: ["conversations"] });
           queryClient.invalidateQueries({ queryKey: ["messages"] });
 

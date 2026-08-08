@@ -15,11 +15,7 @@ export default function ProfileDetail() {
   return (
     <>
       <div className="xl:hidden">
-        <ProfileDetailPanel
-          profileId={id}
-          onClose={() => navigate(-1)}
-          onBlocked={() => navigate("/discover")}
-        />
+        <ProfileDetailPanel profileId={id} onClose={() => navigate(-1)} />
       </div>
       <div className="hidden min-h-[50vh] items-center justify-center xl:flex">
         <p className="text-sm text-muted">Ce profil s&apos;affiche dans le panneau de droite.</p>

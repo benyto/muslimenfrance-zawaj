@@ -36,10 +36,29 @@ rationale and decision log, see the plan file the project was built from.
   (pending/approved/rejected/disabled).
 - **Photos**: UploadThing upload, moderation queue, reordering.
 - **Discovery**: filtered browse (`search_profiles` RPC), URL-driven filter
-  state, block/report.
+  state, report/ignore.
 - **Messaging**: 1:1 conversations, Supabase Realtime delivery, typing
   presence, read receipts, unread counts, inbox-wide new-message toasts.
 - **Favorites**: bookmark a profile, tabbed sidebar (Contacts / Favoris).
+- **Ignore/Block**: one single one-directional mechanism (`profile_ignores`
+  table + `is_profile_ignored()`/`get_my_ignored_profiles()`), exposed
+  under two labels depending on where it's triggered — "Ignorer" (no
+  confirm) on ProfileDetailPanel, "Bloquer" (with a ConfirmDialog, since
+  cutting someone off mid-conversation carries more weight) at the top of
+  an open chat. Either way the effect is identical: the profile drops out
+  of the actor's own `search_profiles` results and `get_my_conversations`,
+  and its messages no longer trigger the inbox toast
+  (`useInboxSubscription` checks a client-side ignored-ids ref) — but the
+  other party is never told, still sees the actor normally, and can still
+  send (the message is written like any other, just invisible to the
+  ignorer by default). Managed from Settings' "Profils ignorés" list.
+  Deliberately replaced an earlier *mutual* block (`user_blocks`/
+  `is_profile_blocked`, retired in
+  `20260808130000_retire_mutual_block.sql`) that hid both parties from
+  each other and rejected messages outright in both directions — an
+  explicit product decision, not a regression: the one-directional model
+  covers "I don't want to see/hear from this person" without needing two
+  separate mechanisms.
 - **Presence**: WhatsApp-style online/offline badges (green/grey/none), via
   a `last_seen_at` heartbeat (`useLastSeenHeartbeat`, ~60s while the tab is
   visible) rather than a realtime channel — a global Presence channel's

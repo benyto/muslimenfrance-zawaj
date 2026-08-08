@@ -81,7 +81,7 @@ export default function Discover() {
           Breakpoint must match the panel's in MessagingWorkspaceLayout. */}
       {previewId && (
         <div className="xl:hidden">
-          <ProfileDetailPanel profileId={previewId} onClose={clearPreview} onBlocked={clearPreview} />
+          <ProfileDetailPanel profileId={previewId} onClose={clearPreview} />
         </div>
       )}
 

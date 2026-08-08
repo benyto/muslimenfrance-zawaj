@@ -114,16 +114,6 @@ export async function messageRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({ error: "Profil introuvable" });
       }
 
-      const { data: blocked } = await db.rpc("is_profile_blocked", {
-        p_profile_a: myProfile.id,
-        p_profile_b: recipientProfileId,
-      });
-      if (blocked) {
-        return reply
-          .code(403)
-          .send({ error: "Impossible d'envoyer un message à ce profil" });
-      }
-
       const { data: hasSubscription } = await db.rpc(
         "has_active_dating_subscription",
         {

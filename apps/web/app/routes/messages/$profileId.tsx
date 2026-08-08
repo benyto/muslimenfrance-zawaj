@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
-import { Link, useOutletContext, useParams } from "react-router";
-import { ArrowLeft, Check, CheckCheck, SendHorizontal } from "lucide-react";
+import { Link, useNavigate, useOutletContext, useParams } from "react-router";
+import { ArrowLeft, Ban, Check, CheckCheck, SendHorizontal } from "lucide-react";
 import { useMyProfile } from "~/lib/queries/useMyProfile";
 import { useProfileDetail } from "~/lib/queries/useProfileDetail";
 import { useConversationWithProfile } from "~/lib/queries/useConversations";
@@ -9,10 +9,13 @@ import { useSendMessage } from "~/lib/queries/useSendMessage";
 import { useMarkAsRead } from "~/lib/queries/useMarkAsRead";
 import { useTypingIndicator } from "~/lib/realtime/useTypingIndicator";
 import { usePresenceStatus } from "~/lib/realtime/usePresence";
+import { useIgnoreProfile, useIsIgnored, useUnignoreProfile } from "~/lib/queries/useIgnoreActions";
 import { photoUrl } from "~/lib/queries/usePhotos";
 import { cn } from "~/lib/cn";
 import { Avatar, Divider, EmptyState, Skeleton } from "~/components/ui/primitives";
+import { IconButton } from "~/components/ui/button";
 import { EmojiPickerButton } from "~/components/ui/emoji-picker";
+import { ConfirmDialog } from "~/components/ui/sheet";
 
 import { StarSpinner } from "~/components/ui/star";
 
@@ -42,10 +45,15 @@ export type ChatOutletContext = { pinnedProfileRef: RefObject<string | null> };
 
 export default function ChatWithProfile() {
   const { profileId: otherProfileId } = useParams();
+  const navigate = useNavigate();
   const { pinnedProfileRef } = useOutletContext<ChatOutletContext>();
   const { data: myProfile } = useMyProfile();
   const { data: otherProfile } = useProfileDetail(otherProfileId);
   const presence = usePresenceStatus(otherProfile?.last_seen_at);
+  const isIgnored = useIsIgnored(otherProfileId);
+  const ignoreProfile = useIgnoreProfile();
+  const unignoreProfile = useUnignoreProfile();
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const { data: conversationId, isLoading: conversationLoading } = useConversationWithProfile(
     myProfile?.id,
     otherProfileId
@@ -223,7 +231,41 @@ export default function ChatWithProfile() {
             <Skeleton className="h-5 w-28" />
           )}
         </Link>
+
+        {/* Same underlying mechanism as ProfileDetailPanel's "Ignorer" — see
+            profile_ignores — just labeled "Bloquer" here since cutting
+            someone off mid-conversation carries more weight than doing it
+            from a profile card, hence the extra confirm step. Un-blocking
+            (already-ignored -> tap again) skips the confirm, mirroring
+            "Ne plus ignorer" there. */}
+        <IconButton
+          label={isIgnored ? "Débloquer" : "Bloquer"}
+          size="sm"
+          onClick={() =>
+            isIgnored ? unignoreProfile.mutate(otherProfileId!) : setShowBlockConfirm(true)
+          }
+        >
+          <Ban className={cn("h-4 w-4", isIgnored && "text-danger")} />
+        </IconButton>
       </header>
+
+      <ConfirmDialog
+        open={showBlockConfirm}
+        onOpenChange={setShowBlockConfirm}
+        title="Bloquer ce profil ?"
+        description={`Vous ne verrez plus les messages de ${otherProfile?.nickname ?? "ce membre"} ni son profil dans vos recherches.`}
+        confirmLabel="Bloquer"
+        destructive
+        loading={ignoreProfile.isPending}
+        onConfirm={() =>
+          ignoreProfile.mutate(otherProfileId!, {
+            onSuccess: () => {
+              setShowBlockConfirm(false);
+              navigate("/messages");
+            },
+          })
+        }
+      />
 
       <div
         ref={threadRef}

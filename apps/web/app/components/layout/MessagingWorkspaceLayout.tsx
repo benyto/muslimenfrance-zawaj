@@ -99,7 +99,6 @@ export default function MessagingWorkspaceLayout() {
               key={selectedProfileId}
               profileId={selectedProfileId}
               variant="panel"
-              onBlocked={clearPreview}
               onClose={location.pathname === "/discover" ? clearPreview : undefined}
             />
           ) : (

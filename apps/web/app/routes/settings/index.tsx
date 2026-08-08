@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { useBlockedProfiles, useUnblockProfile } from "~/lib/queries/useBlockActions";
+import { useIgnoredProfiles, useUnignoreProfile } from "~/lib/queries/useIgnoreActions";
 import {
   useAvailableSubscriptionProduct,
   useMySubscription,
@@ -24,13 +24,18 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
   return <h2 className="mb-4 font-serif text-lg text-ink">{children}</h2>;
 }
 
-function BlockedUsers() {
-  const { data: blocked, isLoading } = useBlockedProfiles();
-  const unblock = useUnblockProfile();
+function IgnoredProfiles() {
+  const { data: ignored, isLoading } = useIgnoredProfiles();
+  const unignore = useUnignoreProfile();
 
   return (
     <Card className="p-6">
-      <SectionHeading>Utilisateurs bloqués</SectionHeading>
+      <SectionHeading>Profils ignorés</SectionHeading>
+      <p className="mb-4 text-sm text-muted">
+        Qu&apos;ils aient été ignorés depuis un profil ou bloqués depuis une conversation, ces
+        profils n&apos;apparaissent plus dans vos recherches et leurs messages ne vous notifient
+        plus — sans qu&apos;ils en soient informés.
+      </p>
       {isLoading && (
         <div className="flex flex-col gap-2">
           {Array.from({ length: 2 }).map((_, i) => (
@@ -38,23 +43,23 @@ function BlockedUsers() {
           ))}
         </div>
       )}
-      {!isLoading && blocked?.length === 0 && (
-        <p className="text-sm text-muted">Vous n&apos;avez bloqué personne.</p>
+      {!isLoading && ignored?.length === 0 && (
+        <p className="text-sm text-muted">Vous n&apos;ignorez personne.</p>
       )}
       <ul className="flex flex-col gap-2">
-        {blocked?.map((b) => (
+        {ignored?.map((i) => (
           <li
-            key={b.blocked_profile_id}
+            key={i.ignored_profile_id}
             className="flex items-center justify-between rounded-xl border border-line px-4 py-2"
           >
-            <span className="text-sm text-ink">{b.nickname}</span>
+            <span className="text-sm text-ink">{i.nickname}</span>
             <button
               type="button"
-              onClick={() => unblock.mutate(b.blocked_profile_id)}
-              disabled={unblock.isPending}
+              onClick={() => unignore.mutate(i.ignored_profile_id)}
+              disabled={unignore.isPending}
               className="text-sm font-medium text-primary hover:underline disabled:opacity-60"
             >
-              Débloquer
+              Ne plus ignorer
             </button>
           </li>
         ))}
@@ -346,7 +351,7 @@ export default function Settings() {
       <PresenceSection />
       <EmailNotificationsSection />
       <SubscriptionSection />
-      <BlockedUsers />
+      <IgnoredProfiles />
       <PrivacySection />
     </div>
   );

@@ -17,13 +17,12 @@ import {
 } from "@rencontre/shared";
 import { useProfileDetail } from "~/lib/queries/useProfileDetail";
 import { useMyProfile } from "~/lib/queries/useMyProfile";
-import { useBlockProfile } from "~/lib/queries/useBlockActions";
+import { useIgnoreProfile, useIsIgnored, useUnignoreProfile } from "~/lib/queries/useIgnoreActions";
 import { useAddFavorite, useIsFavorited, useRemoveFavorite } from "~/lib/queries/useFavorites";
 import { usePresenceStatus } from "~/lib/realtime/usePresence";
 import { photoUrl } from "~/lib/queries/usePhotos";
 import { ReportForm } from "~/components/discovery/ReportForm";
 import { cn } from "~/lib/cn";
-import { ConfirmDialog } from "~/components/ui/sheet";
 import { PhotoLightbox } from "~/components/ui/lightbox";
 
 function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
@@ -52,19 +51,17 @@ function DetailRow({ label, value }: { label: string; value: string | null | und
 // entirely rather than chasing it with z-index and shadows.
 export function ProfileDetailPanel({
   profileId,
-  onBlocked,
   onClose,
   variant = "flow",
   hideActions = false,
 }: {
   profileId: string;
-  onBlocked?: () => void;
   onClose?: () => void;
   variant?: "flow" | "panel";
   // For contexts that already supply their own chrome around the content —
   // e.g. the own-profile preview Sheet, opened from the edit form itself,
-  // where Contacter/Bloquer/Signaler/"Modifier mon profil" are all either
-  // impossible (you can't message or block yourself) or redundant (you're
+  // where Contacter/Ignorer/Signaler/"Modifier mon profil" are all either
+  // impossible (you can't message or ignore yourself) or redundant (you're
   // already on the edit form).
   hideActions?: boolean;
 }) {
@@ -72,12 +69,13 @@ export function ProfileDetailPanel({
   const { data: myProfile } = useMyProfile();
   const isOwnProfile = !!myProfile && myProfile.id === profileId;
   const presence = usePresenceStatus(profile?.last_seen_at);
-  const blockProfile = useBlockProfile();
+  const isIgnored = useIsIgnored(profileId);
+  const ignoreProfile = useIgnoreProfile();
+  const unignoreProfile = useUnignoreProfile();
   const isFavorited = useIsFavorited(profileId);
   const addFavorite = useAddFavorite();
   const removeFavorite = useRemoveFavorite();
   const [showReport, setShowReport] = useState(false);
-  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   if (isLoading) return null;
@@ -248,11 +246,14 @@ export function ProfileDetailPanel({
       </Link>
       <button
         type="button"
-        onClick={() => setShowBlockConfirm(true)}
-        disabled={blockProfile.isPending}
+        onClick={() =>
+          isIgnored ? unignoreProfile.mutate(profile.id) : ignoreProfile.mutate(profile.id)
+        }
+        disabled={ignoreProfile.isPending || unignoreProfile.isPending}
+        aria-pressed={isIgnored}
         className="rounded-xl border border-line px-4 py-2 text-sm font-medium hover:bg-sunken disabled:opacity-60 dark:hover:bg-sunken"
       >
-        Bloquer
+        {isIgnored ? "Ne plus ignorer" : "Ignorer"}
       </button>
       <button
         type="button"
@@ -262,26 +263,6 @@ export function ProfileDetailPanel({
         Signaler
       </button>
     </>
-  );
-
-  const blockConfirmDialog = (
-    <ConfirmDialog
-      open={showBlockConfirm}
-      onOpenChange={setShowBlockConfirm}
-      title="Bloquer ce profil ?"
-      description={`Vous ne verrez plus le profil de ${profile.nickname}, et ${profile.nickname} ne pourra plus vous contacter.`}
-      confirmLabel="Bloquer"
-      destructive
-      loading={blockProfile.isPending}
-      onConfirm={() =>
-        blockProfile.mutate(profile.id, {
-          onSuccess: () => {
-            setShowBlockConfirm(false);
-            onBlocked?.();
-          },
-        })
-      }
-    />
   );
 
   const photoLightbox = profile.photo_keys && profile.photo_keys.length > 0 && (
@@ -306,7 +287,6 @@ export function ProfileDetailPanel({
             {actionButtons}
           </div>
         )}
-        {blockConfirmDialog}
         {photoLightbox}
       </div>
     );
@@ -324,7 +304,6 @@ export function ProfileDetailPanel({
           {actionButtons}
         </div>
       )}
-      {blockConfirmDialog}
       {photoLightbox}
     </div>
   );
