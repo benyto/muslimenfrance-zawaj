@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { Heart } from "lucide-react";
+import { Heart, Lock } from "lucide-react";
 import {
   eyeColorLabels,
   hairColorLabels,
@@ -19,10 +19,12 @@ import { useProfileDetail } from "~/lib/queries/useProfileDetail";
 import { useMyProfile } from "~/lib/queries/useMyProfile";
 import { useIgnoreProfile, useIsIgnored, useUnignoreProfile } from "~/lib/queries/useIgnoreActions";
 import { useAddFavorite, useIsFavorited, useRemoveFavorite } from "~/lib/queries/useFavorites";
+import { useRequestPhotoAccess } from "~/lib/queries/usePhotoAccess";
 import { usePresenceStatus } from "~/lib/realtime/usePresence";
 import { photoUrl } from "~/lib/queries/usePhotos";
 import { cn } from "~/lib/cn";
 import { PhotoLightbox } from "~/components/ui/lightbox";
+import { Button } from "~/components/ui/button";
 
 function DetailRow({ label, value }: { label: string; value: string | null | undefined }) {
   if (!value) return null;
@@ -74,6 +76,7 @@ export function ProfileDetailPanel({
   const isFavorited = useIsFavorited(profileId);
   const addFavorite = useAddFavorite();
   const removeFavorite = useRemoveFavorite();
+  const requestPhotoAccess = useRequestPhotoAccess();
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   if (isLoading) return null;
@@ -105,22 +108,60 @@ export function ProfileDetailPanel({
         </div>
       )}
 
-      {profile.photo_keys && profile.photo_keys.length > 0 ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          {profile.photo_keys.map((key, i) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setLightboxIndex(i)}
-              className="aspect-square overflow-hidden rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
-            >
-              <img
-                src={photoUrl(key)}
-                alt={`Photo ${i + 1} de ${profile.nickname}`}
-                className="h-full w-full object-cover transition-transform hover:scale-105"
-              />
-            </button>
-          ))}
+      {(profile.photo_keys?.length ?? 0) > 0 || profile.private_photo_count > 0 ? (
+        <div className="flex flex-col gap-2">
+          {profile.photo_keys && profile.photo_keys.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {profile.photo_keys.map((key, i) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setLightboxIndex(i)}
+                  className="aspect-square overflow-hidden rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+                >
+                  <img
+                    src={photoUrl(key)}
+                    alt={`Photo ${i + 1} de ${profile.nickname}`}
+                    className="h-full w-full object-cover transition-transform hover:scale-105"
+                  />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Only counts what *this* viewer can't see — zero once access is
+              granted, so the tile disappears and the photos take its place. */}
+          {profile.private_photo_count > 0 && (
+            <div className="flex items-center gap-3 rounded-xl border border-dashed border-line-strong bg-sunken px-4 py-3">
+              <Lock className="h-5 w-5 shrink-0 text-muted" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-ink">
+                  {profile.private_photo_count} photo{profile.private_photo_count > 1 ? "s" : ""} privée
+                  {profile.private_photo_count > 1 ? "s" : ""}
+                </p>
+                <p className="text-xs text-muted">
+                  {isOwnProfile
+                    ? "Visibles uniquement des membres que vous autorisez."
+                    : profile.photo_access_status === "pending"
+                      ? "Demande envoyée — vous serez autorisé·e si elle est acceptée."
+                      : `Visibles uniquement des membres autorisés par ${profile.nickname}.`}
+                </p>
+              </div>
+              {!isOwnProfile && profile.photo_access_status === "none" && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => requestPhotoAccess.mutate(profile.id)}
+                  loading={requestPhotoAccess.isPending}
+                >
+                  Demander l&apos;accès
+                </Button>
+              )}
+            </div>
+          )}
+          {requestPhotoAccess.isError && (
+            <p className="text-xs text-danger">{(requestPhotoAccess.error as Error).message}</p>
+          )}
         </div>
       ) : (
         <div className="flex aspect-video items-center justify-center rounded-xl bg-sunken text-muted">

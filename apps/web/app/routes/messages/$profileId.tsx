@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Link, useNavigate, useOutletContext, useParams } from "react-router";
-import { ArrowLeft, Ban, Check, CheckCheck, Flag, SendHorizontal } from "lucide-react";
+import { ArrowLeft, Ban, Check, CheckCheck, Flag, ImageOff, Images, SendHorizontal } from "lucide-react";
 import { useMyProfile } from "~/lib/queries/useMyProfile";
 import { useProfileDetail } from "~/lib/queries/useProfileDetail";
 import { useConversationWithProfile } from "~/lib/queries/useConversations";
@@ -10,6 +10,7 @@ import { useMarkAsRead } from "~/lib/queries/useMarkAsRead";
 import { useTypingIndicator } from "~/lib/realtime/useTypingIndicator";
 import { usePresenceStatus } from "~/lib/realtime/usePresence";
 import { useIgnoreProfile, useIsIgnored, useUnignoreProfile } from "~/lib/queries/useIgnoreActions";
+import { useHasPhotoAccessGrant, useSetPhotoAccess } from "~/lib/queries/usePhotoAccess";
 import { ReportForm } from "~/components/discovery/ReportForm";
 import { photoUrl } from "~/lib/queries/usePhotos";
 import { cn } from "~/lib/cn";
@@ -54,6 +55,8 @@ export default function ChatWithProfile() {
   const isIgnored = useIsIgnored(otherProfileId);
   const ignoreProfile = useIgnoreProfile();
   const unignoreProfile = useUnignoreProfile();
+  const hasPhotoAccess = useHasPhotoAccessGrant(otherProfileId);
+  const setPhotoAccess = useSetPhotoAccess();
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [showReportSheet, setShowReportSheet] = useState(false);
   const { data: conversationId, isLoading: conversationLoading } = useConversationWithProfile(
@@ -233,6 +236,18 @@ export default function ChatWithProfile() {
             <Skeleton className="h-5 w-28" />
           )}
         </Link>
+
+        {/* Lets the owner grant (or withdraw) access to their private photos
+            for the person they're talking to, without waiting for a
+            request. Pending requests are answered from /profile/me. */}
+        <IconButton
+          label={hasPhotoAccess ? "Retirer l'accès à mes photos privées" : "Autoriser l'accès à mes photos privées"}
+          size="md"
+          disabled={setPhotoAccess.isPending}
+          onClick={() => setPhotoAccess.mutate({ viewerProfileId: otherProfileId!, grant: !hasPhotoAccess })}
+        >
+          {hasPhotoAccess ? <ImageOff className="h-5 w-5" /> : <Images className="h-5 w-5" />}
+        </IconButton>
 
         {/* Same underlying mechanism as ProfileDetailPanel's "Ignorer" — see
             profile_ignores — just labeled "Bloquer" here since cutting

@@ -1,4 +1,6 @@
+import { Navigate } from "react-router";
 import { MessagesSquare, ShieldCheck, Users } from "lucide-react";
+import { useSession } from "~/lib/auth/useSession";
 import { StarMark } from "~/components/ui/star";
 import { ButtonLink } from "~/components/ui/button";
 import { Card } from "~/components/ui/primitives";
@@ -22,6 +24,13 @@ const valueProps = [
 ] as const;
 
 export default function Home() {
+  const { session, loading } = useSession();
+
+  // Signed-in members have no use for the landing page. Wait for the session
+  // lookup so they never see it flash before being redirected.
+  if (loading) return null;
+  if (session) return <Navigate to="/discover" replace />;
+
   return (
     <div className="flex min-h-dvh flex-col items-center px-6 py-16">
       <div className="flex w-full max-w-3xl flex-1 flex-col items-center justify-center text-center">

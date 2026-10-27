@@ -4,6 +4,7 @@ import { supabase } from "~/lib/supabase-client";
 import { useConversations } from "~/lib/queries/useConversations";
 import { useMyProfile } from "~/lib/queries/useMyProfile";
 import { usePhotos } from "~/lib/queries/usePhotos";
+import { usePendingPhotoAccessCount } from "~/lib/queries/usePhotoAccess";
 import { computeProfileCompletion, PROFILE_COMPLETION_THRESHOLD } from "~/lib/profile-completion";
 import { useLastSeenHeartbeat } from "~/lib/realtime/usePresence";
 import { cn } from "~/lib/cn";
@@ -31,6 +32,14 @@ export default function AppShell() {
   );
 
   const { data: profile } = useMyProfile();
+  // undefined = still loading (show everything, avoid a flicker for approved
+  // members); null or non-approved = held at /verification, so the sections
+  // they can't open aren't offered.
+  const restricted = profile !== undefined && profile?.moderation_status !== "approved";
+  const visibleNavItems = restricted
+    ? navItems.filter((item) => item.to === "/profile/me" || item.to === "/settings")
+    : navItems;
+  const pendingPhotoRequests = usePendingPhotoAccessCount();
   const { data: photos } = usePhotos(profile?.id);
   const isProfileIncomplete =
     computeProfileCompletion(profile, photos?.length ?? 0) < PROFILE_COMPLETION_THRESHOLD;
@@ -58,7 +67,7 @@ export default function AppShell() {
           </NavLink>
 
           <nav className="hidden items-center gap-1 sm:flex">
-            {navItems.map(({ to, label, icon: Icon }) => (
+            {visibleNavItems.map(({ to, label, icon: Icon }) => (
               <NavLink
                 key={to}
                 to={to}
@@ -83,6 +92,15 @@ export default function AppShell() {
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" aria-hidden="true" />
                     <span className="sr-only">Profil incomplet</span>
                   </>
+                )}
+                {to === "/profile/me" && pendingPhotoRequests > 0 && (
+                  <span
+                    className="tabular ml-0.5 min-w-5 rounded-full bg-accent px-1.5 py-0.5 text-center text-[11px] font-semibold leading-none text-ink"
+                    title="Demandes d'accès à vos photos privées"
+                  >
+                    {pendingPhotoRequests > 9 ? "9+" : pendingPhotoRequests}
+                    <span className="sr-only"> demandes d&apos;accès à vos photos</span>
+                  </span>
                 )}
               </NavLink>
             ))}
@@ -112,7 +130,7 @@ export default function AppShell() {
           className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface/95 backdrop-blur sm:hidden"
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
-          {navItems.map(({ to, label, icon: Icon }) => (
+          {visibleNavItems.map(({ to, label, icon: Icon }) => (
             <NavLink
               key={to}
               to={to}
@@ -149,6 +167,12 @@ export default function AppShell() {
                         />
                         <span className="sr-only">Profil incomplet</span>
                       </>
+                    )}
+                    {to === "/profile/me" && pendingPhotoRequests > 0 && (
+                      <span className="tabular absolute -right-2.5 -top-1.5 min-w-4 rounded-full bg-accent px-1 text-center text-[10px] font-semibold leading-4 text-ink">
+                        {pendingPhotoRequests > 9 ? "9+" : pendingPhotoRequests}
+                        <span className="sr-only"> demandes d&apos;accès à vos photos</span>
+                      </span>
                     )}
                   </span>
                   {label}

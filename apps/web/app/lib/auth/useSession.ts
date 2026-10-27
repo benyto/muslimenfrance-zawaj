@@ -16,9 +16,17 @@ export function useSession(): SessionState {
   useEffect(() => {
     let isMounted = true;
 
-    supabase.auth.getSession().then(({ data }) => {
-      if (isMounted) setState({ session: data.session, loading: false });
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (isMounted) setState({ session: data.session, loading: false });
+      })
+      // A rejected lookup must still end the loading state: every guard and
+      // page that waits on `loading` renders nothing meanwhile, so a hang
+      // here shows up as a permanently blank page.
+      .catch(() => {
+        if (isMounted) setState({ session: null, loading: false });
+      });
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       if (isMounted) setState({ session, loading: false });

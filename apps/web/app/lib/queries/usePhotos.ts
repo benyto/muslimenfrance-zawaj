@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "~/lib/supabase-client";
 
 // UploadThing app id — same value as apps/api's UPLOADTHING_TOKEN's app,
@@ -23,6 +23,22 @@ export function usePhotos(profileId: string | undefined) {
         .order("position");
       if (error) throw error;
       return data;
+    },
+  });
+}
+
+// Direct update, like reordering would be: `visibility` is the one column
+// besides `position` the owner's column-level UPDATE grant covers.
+export function useSetPhotoVisibility(profileId: string | undefined) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ photoId, visibility }: { photoId: string; visibility: "public" | "private" }) => {
+      const { error } = await supabase.from("profile_photos").update({ visibility }).eq("id", photoId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile-photos", profileId] });
     },
   });
 }

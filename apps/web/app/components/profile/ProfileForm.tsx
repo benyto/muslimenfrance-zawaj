@@ -36,6 +36,7 @@ import { TagInput } from "./TagInput";
 import { CommuneAutocomplete } from "./CommuneAutocomplete";
 import { CountryAutocomplete } from "./CountryAutocomplete";
 import { useToast } from "~/components/ui/toast";
+import { BirthDateInput } from "~/components/ui/date-picker";
 import { StarSpinner } from "~/components/ui/star";
 import { ProgressBar } from "~/components/ui/primitives";
 import { Field, Input, Select, Textarea, Checkbox } from "~/components/ui/form";
@@ -160,7 +161,15 @@ export function ProfileForm({ completion }: { completion: number }) {
           )}
         </Field>
         <Field label="Date de naissance" required error={errors.birthdate?.message}>
-          {(props) => <Input {...props} type="date" {...register("birthdate")} />}
+          {(props) => (
+            <Controller
+              name="birthdate"
+              control={control}
+              render={({ field }) => (
+                <BirthDateInput {...props} value={field.value} onChange={field.onChange} />
+              )}
+            />
+          )}
         </Field>
         <Field label="Ville" error={errors.communeInseeCode?.message}>
           {() => (

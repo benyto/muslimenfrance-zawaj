@@ -84,13 +84,20 @@ export async function messageRoutes(fastify: FastifyInstance) {
 
       const { data: myProfile, error: myProfileError } = await db
         .from("profiles")
-        .select("id, nickname")
+        .select("id, nickname, moderation_status")
         .eq("user_id", request.user!.id)
         .maybeSingle();
       if (myProfileError || !myProfile) {
         return reply
           .code(403)
           .send({ error: "Créez votre profil avant d'envoyer des messages" });
+      }
+      // Only approved members take part in the community — the app holds
+      // everyone else at /verification, but the UI is not the enforcement.
+      if (myProfile.moderation_status !== "approved") {
+        return reply
+          .code(403)
+          .send({ error: "Votre profil doit être validé avant d'envoyer des messages" });
       }
       if (myProfile.id === recipientProfileId) {
         return reply

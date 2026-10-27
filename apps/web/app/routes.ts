@@ -12,12 +12,17 @@ export default [
 
   layout("lib/auth/RequireAuth.tsx", [
     layout("components/layout/AppShell.tsx", [
-      layout("components/layout/MessagingWorkspaceLayout.tsx", [
-        route("discover", "routes/discover/index.tsx"),
-        route("messages", "routes/messages/index.tsx"),
-        route("messages/:profileId", "routes/messages/$profileId.tsx"),
-        route("profile/:id", "routes/profile/$id.tsx"),
+      // Members whose profile isn't approved yet are held at /verification
+      // — only this block is gated; profile/me and settings stay reachable.
+      layout("lib/auth/RequireApproved.tsx", [
+        layout("components/layout/MessagingWorkspaceLayout.tsx", [
+          route("discover", "routes/discover/index.tsx"),
+          route("messages", "routes/messages/index.tsx"),
+          route("messages/:profileId", "routes/messages/$profileId.tsx"),
+          route("profile/:id", "routes/profile/$id.tsx"),
+        ]),
       ]),
+      route("verification", "routes/verification.tsx"),
       route("profile/me", "routes/profile/me.tsx"),
       route("settings", "routes/settings/index.tsx"),
     ]),

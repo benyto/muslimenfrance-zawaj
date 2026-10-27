@@ -1,7 +1,9 @@
-import { useState } from "react";
-import { X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router";
+import { CircleCheck, X } from "lucide-react";
 import { ProfileForm } from "~/components/profile/ProfileForm";
 import { PhotoManager } from "~/components/profile/PhotoManager";
+import { PhotoAccessManager } from "~/components/profile/PhotoAccessManager";
 import { ProfileDetailPanel } from "~/components/profile/ProfileDetailPanel";
 import { useMyProfile } from "~/lib/queries/useMyProfile";
 import { usePhotos } from "~/lib/queries/usePhotos";
@@ -30,6 +32,24 @@ export default function MyProfile() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
 
+  // First save of a brand-new profile: the photo manager only exists once the
+  // profile does, and it renders at the top — but the save button is at the
+  // bottom of a very long form, so the page used to stay down there with the
+  // new section out of sight. Bring them up to it, with a pointer to the
+  // next step. Only on that first creation: later saves keep their scroll
+  // position (a toast confirms them).
+  const profileState = profile === undefined ? "loading" : profile ? "exists" : "none";
+  const previousProfileState = useRef(profileState);
+  const [justCreated, setJustCreated] = useState(false);
+  useEffect(() => {
+    if (previousProfileState.current === "none" && profileState === "exists") {
+      setJustCreated(true);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+    previousProfileState.current = profileState;
+  }, [profileState]);
+  const showPhotosPrompt = justCreated && photos?.length === 0;
+
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
       <div>
@@ -50,6 +70,11 @@ export default function MyProfile() {
             {status.label}
           </span>
         )}
+        {profile && profile.moderation_status !== "approved" && (
+          <Link to="/verification" className="mt-2 block text-sm font-medium text-primary hover:underline">
+            Voir l&apos;état de ma vérification →
+          </Link>
+        )}
         {!profile && (
           <p className="mt-2 text-sm text-muted">
             Complétez votre profil pour commencer — il sera vérifié par notre équipe avant d&apos;être visible par
@@ -57,7 +82,19 @@ export default function MyProfile() {
           </p>
         )}
       </div>
-      {profile && isIncomplete && !bannerDismissed && (
+      {profile && showPhotosPrompt && (
+        <Card className="flex items-start gap-3 border-success/40 bg-success-soft p-4">
+          <CircleCheck className="mt-0.5 h-5 w-5 shrink-0 text-success" aria-hidden="true" />
+          <div className="text-sm text-success">
+            <p className="font-medium">Profil enregistré !</p>
+            <p className="mt-0.5">
+              Dernière étape : ajoutez vos photos ci-dessous. Notre équipe vérifiera ensuite votre profil et
+              vous préviendra par email.
+            </p>
+          </div>
+        </Card>
+      )}
+      {profile && isIncomplete && !bannerDismissed && !showPhotosPrompt && (
         <Card className="relative border-warning/40 bg-warning-soft p-4 pr-12">
           <p className="text-sm text-warning">
             Un profil plus complet augmente vos chances d&apos;être remarqué·e par les membres qui vous recherchent.
@@ -74,6 +111,7 @@ export default function MyProfile() {
         </Card>
       )}
       {profile && <PhotoManager profileId={profile.id} />}
+      {profile && <PhotoAccessManager />}
       <ProfileForm completion={completion} />
 
       {/* Same Sheet primitive as the discovery filters — a right-hand panel

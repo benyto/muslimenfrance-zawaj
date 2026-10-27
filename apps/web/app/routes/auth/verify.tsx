@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Navigate, useSearchParams } from "react-router";
 import { supabase } from "~/lib/supabase-client";
 import { StarSpinner } from "~/components/ui/star";
+import { safeRedirect } from "~/lib/auth/safe-redirect";
 
 export default function Verify() {
   const [searchParams] = useSearchParams();
@@ -10,17 +11,26 @@ export default function Verify() {
   useEffect(() => {
     // detectSessionInUrl (set on the client) already exchanges the magic-link
     // code for a session on load; this just waits for that to settle.
-    supabase.auth.getSession().then(({ data, error }) => {
-      setStatus(error || !data.session ? "error" : "done");
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data, error }) => {
+        setStatus(error || !data.session ? "error" : "done");
+      })
+      .catch(() => setStatus("error"));
   }, []);
 
   if (status === "done") {
-    return <Navigate to={searchParams.get("redirect") ?? "/discover"} replace />;
+    return <Navigate to={safeRedirect(searchParams.get("redirect"))} replace />;
   }
 
+  // No session after the magic link was processed: it was expired, already
+  // used (mail scanners often open links first), or malformed. Back to the
+  // login form, which explains why and keeps the intended destination.
   if (status === "error") {
-    return <Navigate to="/auth/login" replace />;
+    const params = new URLSearchParams({ error: "link_expired" });
+    const redirect = searchParams.get("redirect");
+    if (redirect) params.set("redirect", redirect);
+    return <Navigate to={`/auth/login?${params}`} replace />;
   }
 
   return (

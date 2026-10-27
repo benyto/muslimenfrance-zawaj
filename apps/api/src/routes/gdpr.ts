@@ -42,11 +42,12 @@ export async function gdprRoutes(fastify: FastifyInstance) {
       let conversations: unknown[] = [];
       let messages: unknown[] = [];
       let ignores: unknown[] = [];
+      let photoAccess: unknown[] = [];
       let reports: unknown[] = [];
       let subscriptions: unknown[] = [];
 
       if (profile) {
-        const [photosRes, conversationsRes, ignoresRes, subscriptionsRes] =
+        const [photosRes, conversationsRes, ignoresRes, subscriptionsRes, photoAccessRes] =
           await Promise.all([
             supabaseAdmin
               .from("profile_photos")
@@ -64,7 +65,12 @@ export async function gdprRoutes(fastify: FastifyInstance) {
               .from("user_subscriptions")
               .select("*")
               .eq("user_id", userId),
+            supabaseAdmin
+              .from("photo_access")
+              .select("*")
+              .or(`owner_profile_id.eq.${profile.id},viewer_profile_id.eq.${profile.id}`),
           ]);
+        photoAccess = photoAccessRes.data ?? [];
         photos = photosRes.data ?? [];
         conversations = conversationsRes.data ?? [];
         ignores = ignoresRes.data ?? [];
@@ -98,6 +104,7 @@ export async function gdprRoutes(fastify: FastifyInstance) {
         conversations,
         messages,
         ignores,
+        photoAccess,
         reports,
         subscriptions,
       };

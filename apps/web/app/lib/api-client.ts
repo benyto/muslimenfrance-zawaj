@@ -13,7 +13,10 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      // Only when there is a body: Fastify answers 400 to a JSON content
+      // type with an empty body *before* the route runs, which silently
+      // broke every bodyless call (e.g. DELETE /photos/:id).
+      ...(init.body ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...init.headers,
     },

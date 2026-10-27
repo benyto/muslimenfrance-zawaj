@@ -35,6 +35,25 @@ rationale and decision log, see the plan file the project was built from.
   country), GDPR Art. 9 consent capture, moderation workflow
   (pending/approved/rejected/disabled).
 - **Photos**: UploadThing upload, moderation queue, reordering.
+- **Private photos**: each photo is public or private
+  (`profile_photos.visibility`, chosen with the Publique/Privée switch under
+  each photo in PhotoManager). New uploads default to **private** — an
+  upload is committed immediately, independent of the profile form's Save,
+  so a public default would go live on approval before the owner chose.
+  Access is per member, not per photo: a viewer asks from the locked tile
+  on a profile ("Demander l'accès"), the owner answers from /profile/me
+  (`PhotoAccessManager`, with a count badge on the "Profil" nav item) or
+  grants proactively from the chat header. Stored in `photo_access`
+  (pending/granted/denied — a decline or revoke is silent, the viewer keeps
+  seeing "demande envoyée"), written only through the `request_photo_access`
+  / `set_photo_access` RPCs. Enforced where keys are handed out:
+  `get_profile_detail`, `search_profiles`, `get_my_conversations` and
+  `get_my_favorites` omit private keys unless the caller holds a grant
+  (`can_view_private_photos`). **Known limit:** files are still public-read
+  on UploadThing, so this withholds the key rather than gating the URL — a
+  member who was granted access and saved a link keeps it after a revoke.
+  Closing that needs UploadThing private ACL + signed URLs (the existing
+  `TODO(private mode)` in `apps/api/src/uploadthing/router.ts`).
 - **Discovery**: filtered browse (`search_profiles` RPC), URL-driven filter
   state, report/ignore.
 - **Messaging**: 1:1 conversations, Supabase Realtime delivery, typing

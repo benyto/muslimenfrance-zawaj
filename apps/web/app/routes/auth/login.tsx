@@ -1,7 +1,9 @@
 import { useState } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link, Navigate, useSearchParams } from "react-router";
 import { CircleCheck } from "lucide-react";
 import { supabase } from "~/lib/supabase-client";
+import { useSession } from "~/lib/auth/useSession";
+import { safeRedirect } from "~/lib/auth/safe-redirect";
 import { StarMark } from "~/components/ui/star";
 import { Button } from "~/components/ui/button";
 import { Field, Input } from "~/components/ui/form";
@@ -9,6 +11,7 @@ import { Card } from "~/components/ui/primitives";
 
 export default function Login() {
   const [searchParams] = useSearchParams();
+  const { session, loading } = useSession();
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -18,7 +21,7 @@ export default function Login() {
     setStatus("sending");
     setErrorMessage(null);
 
-    const redirect = searchParams.get("redirect") ?? "/discover";
+    const redirect = safeRedirect(searchParams.get("redirect"));
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
@@ -34,6 +37,12 @@ export default function Login() {
 
     setStatus("sent");
   }
+
+  // Already signed in (e.g. a bookmarked /auth/login, or the magic link was
+  // just opened in another tab): nothing to do here. Wait for the session
+  // lookup first so a signed-in user never sees the form flash.
+  if (loading) return null;
+  if (session) return <Navigate to={safeRedirect(searchParams.get("redirect"))} replace />;
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-sm flex-col justify-center px-6">
@@ -57,6 +66,12 @@ export default function Login() {
           <p className="mt-2 text-center text-sm text-muted">
             Pas de mot de passe — on vous envoie un lien de connexion par email.
           </p>
+
+          {searchParams.get("error") === "link_expired" && (
+            <p role="alert" className="mt-6 rounded-xl bg-warning-soft p-3 text-center text-sm text-warning">
+              Ce lien de connexion est invalide ou a expiré. Saisissez votre email pour en recevoir un nouveau.
+            </p>
+          )}
 
           <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-4">
             <Field label="Email" error={status === "error" ? errorMessage ?? undefined : undefined}>
