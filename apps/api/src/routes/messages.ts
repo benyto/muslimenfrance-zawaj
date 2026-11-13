@@ -80,113 +80,51 @@ export async function messageRoutes(fastify: FastifyInstance) {
           });
       }
       const { recipientProfileId, content } = parsed.data;
-      const db = request.supabase!;
 
-      const { data: myProfile, error: myProfileError } = await db
-        .from("profiles")
-        .select("id, nickname, moderation_status")
-        .eq("user_id", request.user!.id)
-        .maybeSingle();
-      if (myProfileError || !myProfile) {
-        return reply
-          .code(403)
-          .send({ error: "Créez votre profil avant d'envoyer des messages" });
-      }
-      // Only approved members take part in the community — the app holds
-      // everyone else at /verification, but the UI is not the enforcement.
-      if (myProfile.moderation_status !== "approved") {
-        return reply
-          .code(403)
-          .send({ error: "Votre profil doit être validé avant d'envoyer des messages" });
-      }
-      if (myProfile.id === recipientProfileId) {
-        return reply
-          .code(400)
-          .send({ error: "Vous ne pouvez pas vous envoyer de message" });
-      }
+      // Everything that decides whether this message may exist — sender and
+      // recipient approved, not the same person, subscription — plus the
+      // create-or-find of the conversation and the insert, happens in one
+      // database transaction inside send_message_command. That function is
+      // callable by the service role only and clients hold no INSERT grant
+      // on messages/conversations, so this route (and its rate limit above)
+      // is the only way a message can be written.
+      // Returns a single row (not a set), so no .single() — the generated
+      // types model it as the row itself.
+      const { data: message, error: sendError } = await supabaseAdmin.rpc("send_message_command", {
+        p_sender_user_id: request.user!.id,
+        p_recipient_profile_id: recipientProfileId,
+        p_content: content,
+      });
 
-      // profiles RLS is owner-only — request.supabase (Amina's own RLS
-      // context) cannot see Karim's row at all, regardless of whether it
-      // exists. Checking a message recipient exists/is approved is exactly
-      // the kind of privileged cross-user read the API exists to perform,
-      // so this one deliberately uses the service-role client.
-      const { data: recipientProfile, error: recipientError } =
-        await supabaseAdmin
-          .from("profiles")
-          .select("id")
-          .eq("id", recipientProfileId)
-          .eq("moderation_status", "approved")
-          .maybeSingle();
-      if (recipientError || !recipientProfile) {
-        return reply.code(404).send({ error: "Profil introuvable" });
-      }
-
-      const { data: hasSubscription } = await db.rpc(
-        "has_active_dating_subscription",
-        {
-          p_user_id: request.user!.id,
-        },
-      );
-      if (!hasSubscription) {
-        return reply
-          .code(402)
-          .send({
+      if (sendError || !message) {
+        const known: Record<string, { status: number; error: string }> = {
+          SENDER_NOT_APPROVED: {
+            status: 403,
+            error: "Votre profil doit être validé avant d'envoyer des messages",
+          },
+          SELF_MESSAGE: { status: 400, error: "Vous ne pouvez pas vous envoyer de message" },
+          RECIPIENT_NOT_FOUND: { status: 404, error: "Profil introuvable" },
+          SUBSCRIPTION_REQUIRED: {
+            status: 402,
             error: "Un abonnement actif est requis pour envoyer des messages",
-          });
-      }
+          },
+        };
+        const mapped = sendError ? known[sendError.message] : undefined;
+        if (mapped) return reply.code(mapped.status).send({ error: mapped.error });
 
-      // conversations' unique constraint is on the exact (profile1_id,
-      // profile2_id) pair, not normalized — without a canonical order here,
-      // Alice→Bob and Bob→Alice could each create their own conversation
-      // row instead of sharing one. Always store the lexicographically
-      // smaller id first so the same pair always maps to the same row,
-      // and look up using both possible orderings for existing rows
-      // created before this fix.
-      const [profileA, profileB] = [myProfile.id, recipientProfileId].sort();
-
-      const { data: existingConversation } = await db
-        .from("conversations")
-        .select("id")
-        .or(
-          `and(profile1_id.eq.${myProfile.id},profile2_id.eq.${recipientProfileId}),and(profile1_id.eq.${recipientProfileId},profile2_id.eq.${myProfile.id})`,
-        )
-        .maybeSingle();
-
-      let conversationId = existingConversation?.id;
-      if (!conversationId) {
-        const { data: newConversation, error: conversationError } = await db
-          .from("conversations")
-          .insert({ profile1_id: profileA, profile2_id: profileB })
-          .select("id")
-          .single();
-        if (conversationError || !newConversation) {
-          request.log.error(conversationError, "Failed to create conversation");
-          return reply
-            .code(500)
-            .send({ error: "Échec de la création de la conversation" });
-        }
-        conversationId = newConversation.id;
-      }
-
-      const { data: message, error: messageError } = await db
-        .from("messages")
-        .insert({
-          conversation_id: conversationId,
-          sender_profile_id: myProfile.id,
-          recipient_profile_id: recipientProfileId,
-          content,
-        })
-        .select()
-        .single();
-
-      if (messageError) {
-        request.log.error(messageError, "Failed to send message");
+        request.log.error(sendError, "Failed to send message");
         return reply.code(500).send({ error: "Échec de l'envoi du message" });
       }
 
+      const { data: senderProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("nickname")
+        .eq("id", message.sender_profile_id)
+        .single();
+
       await maybeSendNewMessageEmail({
-        conversationId,
-        senderNickname: myProfile.nickname,
+        conversationId: message.conversation_id,
+        senderNickname: senderProfile?.nickname ?? "Un membre",
         recipientProfileId,
         messageContent: content,
       });

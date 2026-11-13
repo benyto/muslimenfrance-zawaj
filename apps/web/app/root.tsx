@@ -12,6 +12,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Route } from "./+types/root";
 import { ThemeProvider, themeInitScript } from "./lib/theme";
 import { ToastProvider } from "./components/ui/toast";
+import { useClearCacheOnIdentityChange } from "./lib/auth/useClearCacheOnIdentityChange";
 import "./app.css";
 
 const queryClient = new QueryClient({
@@ -64,10 +65,18 @@ export function Layout({ children }: { children: React.ReactNode }) {
   );
 }
 
+// A component (not a call in App) because the hook needs the QueryClient from
+// the provider rendered right below.
+function ClearCacheOnIdentityChange() {
+  useClearCacheOnIdentityChange();
+  return null;
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
+        <ClearCacheOnIdentityChange />
         <ToastProvider>
           <Outlet />
         </ToastProvider>

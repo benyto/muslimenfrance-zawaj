@@ -1054,6 +1054,29 @@ export type Database = {
           religion: string
         }[]
       }
+      send_message_command: {
+        Args: {
+          p_content: string
+          p_recipient_profile_id: string
+          p_sender_user_id: string
+        }
+        Returns: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          is_read: boolean
+          recipient_profile_id: string
+          sender_profile_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_photo_access: {
         Args: { p_grant: boolean; p_viewer_profile_id: string }
         Returns: undefined

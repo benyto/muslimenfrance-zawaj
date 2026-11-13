@@ -43,7 +43,15 @@ export async function photoRoutes(fastify: FastifyInstance) {
         return reply.code(404).send({ error: "Photo not found" });
       }
 
-      await utapi.deleteFiles(photo.uploadthing_key);
+      // Remove the file first and only drop the row once that worked: the row
+      // is what remembers the key, so deleting it after a failed remote
+      // delete would leave an orphaned, still-public file nobody can find.
+      // On failure the row stays and the member can simply retry.
+      const { success } = await utapi.deleteFiles(photo.uploadthing_key);
+      if (!success) {
+        request.log.error({ key: photo.uploadthing_key }, "UploadThing refused to delete file");
+        return reply.code(502).send({ error: "La suppression du fichier a échoué, réessayez." });
+      }
 
       const { error: deleteError } = await supabaseAdmin
         .from("profile_photos")

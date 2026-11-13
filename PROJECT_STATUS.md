@@ -166,6 +166,20 @@ with icons + pending-count badges, mobile drawer, sign-out.
 Admin enums (`pending`/`approved`/etc.) are deliberately left in English —
 explicit call, not an oversight.
 
+### Server-only writes (done)
+
+Clients can no longer insert or delete in `profile_photos`, `messages`,
+`conversations` or `reports` — they keep SELECT (plus the two photo column
+updates). Everything goes through `apps/api` with the service role, which
+validates first: photo rows come only from the UploadThing callback (and a
+key can belong to one row), sending goes through the service-role-only
+`send_message_command()` (finds/creates the canonical conversation and
+inserts the message in one transaction), and reports check the target exists
+and that a message reporter took part in it. Migration
+`20261111090000_server_only_writes.sql`; verified with rolled-back
+two-identity SQL tests. The query cache is also cleared whenever the signed-in
+user changes (`useClearCacheOnIdentityChange`).
+
 ## Known gaps / deliberately deferred
 
 - **Phase 11 (launch/cutover)** — not started: DNS, redirecting the
