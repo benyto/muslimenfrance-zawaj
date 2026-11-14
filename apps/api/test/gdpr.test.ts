@@ -107,6 +107,11 @@ describe("account deletion", () => {
     assert.equal(mine.status, 200);
     assert.equal(theirs.status, 200);
     assert.equal((await api(member, "POST", "/messages", { recipientProfileId: friend.profileId, content: "bye" })).status, 200);
+    // Needed to send above; ended before deleting so no call to Stripe is made
+    // (a live subscription is cancelled there first, which needs a real Stripe
+    // account — this test must not depend on one).
+    const ended = await admin.from("user_subscriptions").update({ status: "canceled" }).eq("user_id", member.userId);
+    assert.ifError(ended.error);
     assert.equal(await storedFiles(mine.body.storage_key), "display.webp,thumb.webp");
 
     const res = await api(member, "POST", "/gdpr/delete");
