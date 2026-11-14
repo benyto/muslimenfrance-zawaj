@@ -5,13 +5,19 @@ import { resend } from "../resend.js";
 // triggered from (sending a message, processing a webhook) — a Resend
 // outage must not fail the underlying operation. Log and swallow instead
 // of throwing.
-export async function sendEmail(to: string, { subject, html }: { subject: string; html: string }) {
+export async function sendEmail(
+  to: string,
+  { subject, html }: { subject: string; html: string }
+): Promise<boolean> {
   try {
     const { error } = await resend.emails.send({ from: env.EMAIL_FROM, to, subject, html });
     if (error) {
       console.error("Resend send failed", { to, subject, error });
+      return false;
     }
+    return true;
   } catch (err) {
     console.error("Resend send threw", { to, subject, error: err });
+    return false;
   }
 }

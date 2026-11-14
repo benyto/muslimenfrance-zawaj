@@ -17,3 +17,28 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
+      # The build passing proves the code compiles, not that the artifact
+      # runs — a missing runtime file only shows up when node starts it. Start
+      # the built API with placeholder values (nothing is contacted at boot)
+      # and require /health to answer.
+      - name: Start built API and check /health
+        env:
+          PORT: "8787"
+          CORS_ORIGIN: http://localhost:5173
+          SITE_URL: http://localhost:5173
+          SUPABASE_URL: https://example.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: ci
+          SUPABASE_SECRET_KEY: ci
+          UPLOADTHING_TOKEN: ci
+          STRIPE_SECRET_KEY: sk_test_ci
+          STRIPE_WEBHOOK_SECRET: whsec_ci
+          RESEND_API_KEY: re_ci
+        run: |
+          node apps/api/dist/server.js &
+          pid=$!
+          for i in $(seq 1 20); do
+            if curl -fsS http://localhost:8787/health; then kill $pid; exit 0; fi
+            sleep 1
+          done
+          kill $pid
+          echo "API did not become healthy" && exit 1

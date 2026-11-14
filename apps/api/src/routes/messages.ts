@@ -6,9 +6,11 @@ import { sendEmail } from "../lib/email/send.js";
 import { newMessageEmail } from "../lib/email/templates.js";
 import { userRateLimit } from "../lib/user-rate-limit.js";
 
+// Runs after the response has gone out (see the call site) — nothing here may
+// delay or fail the send.
 async function maybeSendNewMessageEmail(params: {
   conversationId: string;
-  senderNickname: string;
+  senderProfileId: string;
   recipientProfileId: string;
   messageContent: string;
 }) {
@@ -25,22 +27,33 @@ async function maybeSendNewMessageEmail(params: {
     return;
   }
 
-  const { data: conversation } = await supabaseAdmin
-    .from("conversations")
-    .select("last_notification_email_sent_at")
-    .eq("id", params.conversationId)
-    .single();
+  // Atomic per-recipient claim: true only for the one caller that took the
+  // slot, so simultaneous messages can't both send, and the window is the
+  // recipient's own rather than shared with the sender.
+  const { data: claimed } = await supabaseAdmin.rpc("claim_message_email_slot", {
+    p_conversation_id: params.conversationId,
+    p_recipient_profile_id: params.recipientProfileId,
+    p_cooldown_minutes: recipientProfile.email_new_message_cooldown_minutes,
+  });
+  if (!claimed) return;
 
-  const cooldownMs = recipientProfile.email_new_message_cooldown_minutes * 60 * 1000;
-  const lastSent = conversation?.last_notification_email_sent_at
-    ? new Date(conversation.last_notification_email_sent_at).getTime()
-    : 0;
-  if (Date.now() - lastSent < cooldownMs) {
+  const release = () =>
+    supabaseAdmin.rpc("release_message_email_slot", {
+      p_conversation_id: params.conversationId,
+      p_recipient_profile_id: params.recipientProfileId,
+    });
+
+  const recipientEmail = await getUserEmail(recipientProfile.user_id);
+  if (!recipientEmail) {
+    await release();
     return;
   }
 
-  const recipientEmail = await getUserEmail(recipientProfile.user_id);
-  if (!recipientEmail) return;
+  const { data: sender } = await supabaseAdmin
+    .from("profiles")
+    .select("nickname")
+    .eq("id", params.senderProfileId)
+    .single();
 
   const preview =
     params.messageContent.length > 80
@@ -48,15 +61,13 @@ async function maybeSendNewMessageEmail(params: {
       : params.messageContent;
   const { subject, html } = newMessageEmail({
     recipientNickname: recipientProfile.nickname,
-    senderNickname: params.senderNickname,
+    senderNickname: sender?.nickname ?? "Un membre",
     preview,
   });
-  await sendEmail(recipientEmail, { subject, html });
 
-  await supabaseAdmin
-    .from("conversations")
-    .update({ last_notification_email_sent_at: new Date().toISOString() })
-    .eq("id", params.conversationId);
+  // A failed send must not use up the window.
+  const sent = await sendEmail(recipientEmail, { subject, html });
+  if (!sent) await release();
 }
 
 export async function messageRoutes(fastify: FastifyInstance) {
@@ -116,18 +127,14 @@ export async function messageRoutes(fastify: FastifyInstance) {
         return reply.code(500).send({ error: "Échec de l'envoi du message" });
       }
 
-      const { data: senderProfile } = await supabaseAdmin
-        .from("profiles")
-        .select("nickname")
-        .eq("id", message.sender_profile_id)
-        .single();
-
-      await maybeSendNewMessageEmail({
+      // Fire and forget: the member's send is already committed, so the reply
+      // shouldn't wait on four database/Resend round trips for an email.
+      void maybeSendNewMessageEmail({
         conversationId: message.conversation_id,
-        senderNickname: senderProfile?.nickname ?? "Un membre",
+        senderProfileId: message.sender_profile_id,
         recipientProfileId,
         messageContent: content,
-      });
+      }).catch((err) => request.log.error(err, "New-message email failed"));
 
       return message;
     },

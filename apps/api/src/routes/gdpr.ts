@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { supabaseAdmin } from "../lib/supabase-admin.js";
+import { stripe } from "../lib/stripe.js";
 import { userRateLimit } from "../lib/user-rate-limit.js";
 
 export async function gdprRoutes(fastify: FastifyInstance) {
@@ -132,6 +133,34 @@ export async function gdprRoutes(fastify: FastifyInstance) {
         request_type: "delete",
         status: "processing",
       });
+
+      // Stop billing first. Deleting the account removes our subscription
+      // rows but not the Stripe subscription itself, which would keep
+      // charging a customer who no longer exists. Cancelled immediately (the
+      // account is going away, there's no period to honour). If Stripe can't
+      // be reached the deletion is refused rather than carried on: the member
+      // retries, instead of being billed with no account to cancel from.
+      const { data: liveSubscriptions, error: subscriptionsError } = await supabaseAdmin
+        .from("user_subscriptions")
+        .select("stripe_subscription_id")
+        .eq("user_id", userId)
+        .in("status", ["trialing", "active", "past_due", "unpaid", "incomplete"]);
+      if (subscriptionsError) {
+        request.log.error(subscriptionsError, "Failed to look up subscriptions before account deletion");
+        return reply.code(500).send({ error: "Échec de la suppression du compte" });
+      }
+      for (const { stripe_subscription_id } of liveSubscriptions ?? []) {
+        try {
+          await stripe.subscriptions.cancel(stripe_subscription_id);
+        } catch (err) {
+          // Already gone on Stripe's side is the outcome we wanted.
+          if ((err as { code?: string }).code === "resource_missing") continue;
+          request.log.error(err, "Failed to cancel Stripe subscription before account deletion");
+          return reply.code(502).send({
+            error: "Impossible d'annuler votre abonnement pour le moment. Réessayez dans un instant.",
+          });
+        }
+      }
 
       const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
       if (error) {

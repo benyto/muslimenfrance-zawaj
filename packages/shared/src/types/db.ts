@@ -240,7 +240,6 @@ export type Database = {
           last_message_at: string
           last_message_content: string | null
           last_message_sender_profile_id: string | null
-          last_notification_email_sent_at: string | null
           profile1_id: string
           profile2_id: string
           updated_at: string
@@ -251,7 +250,6 @@ export type Database = {
           last_message_at?: string
           last_message_content?: string | null
           last_message_sender_profile_id?: string | null
-          last_notification_email_sent_at?: string | null
           profile1_id: string
           profile2_id: string
           updated_at?: string
@@ -262,7 +260,6 @@ export type Database = {
           last_message_at?: string
           last_message_content?: string | null
           last_message_sender_profile_id?: string | null
-          last_notification_email_sent_at?: string | null
           profile1_id?: string
           profile2_id?: string
           updated_at?: string
@@ -346,6 +343,39 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      message_email_claims: {
+        Row: {
+          conversation_id: string
+          last_sent_at: string
+          recipient_profile_id: string
+        }
+        Insert: {
+          conversation_id: string
+          last_sent_at: string
+          recipient_profile_id: string
+        }
+        Update: {
+          conversation_id?: string
+          last_sent_at?: string
+          recipient_profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_email_claims_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_email_claims_recipient_profile_id_fkey"
+            columns: ["recipient_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       messages: {
         Row: {
@@ -933,6 +963,14 @@ export type Database = {
         Args: { p_owner_profile_id: string; p_viewer_profile_id: string }
         Returns: boolean
       }
+      claim_message_email_slot: {
+        Args: {
+          p_conversation_id: string
+          p_cooldown_minutes: number
+          p_recipient_profile_id: string
+        }
+        Returns: boolean
+      }
       get_my_conversations: {
         Args: never
         Returns: {
@@ -1024,6 +1062,10 @@ export type Database = {
       is_profile_ignored: {
         Args: { p_ignored_profile_id: string; p_ignorer_profile_id: string }
         Returns: boolean
+      }
+      release_message_email_slot: {
+        Args: { p_conversation_id: string; p_recipient_profile_id: string }
+        Returns: undefined
       }
       request_photo_access: {
         Args: { p_owner_profile_id: string }

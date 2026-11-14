@@ -180,8 +180,45 @@ and that a message reporter took part in it. Migration
 two-identity SQL tests. The query cache is also cleared whenever the signed-in
 user changes (`useClearCacheOnIdentityChange`).
 
+### Reliability fixes (done)
+
+- **API is deployable**: `npm run build -w apps/api` now bundles to a single
+  `dist/server.js` with esbuild (the shared package ships TypeScript, so the
+  old `tsc` output couldn't start under plain `node`). CI starts the built
+  file and requires `/health`.
+- **New-message emails**: per-recipient, atomic cooldown
+  (`message_email_claims` + `claim_message_email_slot()`), released if the
+  send fails, and sent after the reply instead of before it. Conversation
+  polling dropped from 15s to 60s (realtime covers it).
+- **Message history cursor** is `(created_at, id)` with a matching index, so
+  messages sharing a timestamp at a page boundary are no longer skipped.
+- **Account deletion** cancels any live Stripe subscription first, and
+  refuses to proceed (502) if Stripe can't be reached.
+- Removed the stale `pnpm-lock.yaml` (npm is the package manager).
+
+**Needs your attention:** the Stripe *test* secret key in `apps/api/.env` is
+expired ("Expired API Key provided"). Roll a new one before testing
+checkout or subscriptions. The live-subscription cancellation path on
+account deletion has therefore not been exercised against real Stripe objects.
+
 ## Known gaps / deliberately deferred
 
+- **Move photo storage from UploadThing to Supabase Storage** — decided,
+  not started (~1.5–2 days). Why: private-photo rules can then live in
+  Postgres policies on `storage.objects` (reusing `photo_access`), so a
+  leaked path stops working at the next signing and revocation is real —
+  this is what actually closes the "private photos are only hidden" gap;
+  one vendor instead of two; EU storage (project is eu-west-1). Plan:
+  private bucket; the API receives uploads, verifies it is a real image,
+  re-encodes with `sharp` (strips EXIF/GPS, writes a thumbnail + display
+  size, discards the original); the UI batches `createSignedUrls` behind a
+  `usePhotoUrl` hook (replacing the synchronous `photoUrl(key)`); one-off
+  script migrates the 35 existing photos; then drop `uploadthing`,
+  `@uploadthing/react` and the callback route. **Don't** use Supabase's
+  on-the-fly image transformations — billed per distinct original
+  ($5/1,000 after 100/month on Pro). Supersedes the `TODO(private mode)`
+  in `apps/api/src/uploadthing/router.ts` and the UploadThing half of
+  account deletion.
 - **Phase 11 (launch/cutover)** — not started: DNS, redirecting the
   monolith's old `/dating` routes, decommissioning old dating tables there,
   deploying `apps/api` on the VPS. This needs the user to actually be ready

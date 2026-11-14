@@ -4,7 +4,9 @@ import type { Database } from "@rencontre/shared";
 import { supabase } from "~/lib/supabase-client";
 
 type Message = Database["public"]["Tables"]["messages"]["Row"];
-type PageParam = { before: string } | undefined;
+// (created_at, id) rather than created_at alone: rows that share a timestamp
+// at a page boundary would otherwise be skipped by a strict "<".
+type PageParam = { before: string; beforeId: string } | undefined;
 
 const PAGE_SIZE = 30;
 
@@ -30,14 +32,21 @@ export function useConversationMessages(conversationId: string | null | undefine
         .select("*")
         .eq("conversation_id", conversationId!)
         .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
         .limit(PAGE_SIZE);
-      if (pageParam) request = request.lt("created_at", pageParam.before);
+      if (pageParam) {
+        request = request.or(
+          `created_at.lt.${pageParam.before},and(created_at.eq.${pageParam.before},id.lt.${pageParam.beforeId})`
+        );
+      }
       const { data, error } = await request;
       if (error) throw error;
       return data.reverse();
     },
     getNextPageParam: (lastPage) =>
-      lastPage.length < PAGE_SIZE ? undefined : { before: lastPage[0].created_at },
+      lastPage.length < PAGE_SIZE
+        ? undefined
+        : { before: lastPage[0].created_at, beforeId: lastPage[0].id },
   });
 
   useEffect(() => {

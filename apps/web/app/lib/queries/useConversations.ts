@@ -12,7 +12,10 @@ export function useConversations() {
       if (error) throw error;
       return data;
     },
-    refetchInterval: 15_000,
+    // Realtime (useInboxSubscription) already refreshes this the moment a
+    // message lands; the interval is only a safety net for a dropped
+    // connection, so it doesn't need to be aggressive.
+    refetchInterval: 60_000,
   });
 }
 
