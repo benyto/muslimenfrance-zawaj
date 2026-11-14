@@ -61,7 +61,10 @@ export default function AdminAuditLog() {
                     </>
                   )}
                 </td>
-                <td className="px-3 py-2 text-muted">{entry.admin_user_id.slice(0, 8)}…</td>
+                <td className="px-3 py-2 text-muted">
+                  {/* null once that admin's account has been deleted */}
+                  {entry.admin_user_id ? `${entry.admin_user_id.slice(0, 8)}…` : "Compte supprimé"}
+                </td>
               </tr>
             ))}
           </tbody>

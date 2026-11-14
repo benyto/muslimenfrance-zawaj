@@ -243,6 +243,31 @@ events for one subscription processed at the exact same instant (both read
 current state, so they converge); a retention job to prune old
 `webhook_events` rows.
 
+### Account export (done)
+
+`POST /gdpr/export` (`lib/gdpr/export.ts`) now reads every table through
+`fetchAll` (`lib/paginate.ts`), which pages with a stable order, asks for the
+exact row count and **throws** if it ends up with fewer rows — PostgREST's
+silent 1,000-row cap used to cut long message histories off with no error.
+Any read failure makes the whole export fail: the response is a 500 and
+`gdpr_requests` is marked `failed`; `completed` is only written for a full
+export. Fields are chosen explicitly per table (no `select("*")`): moderator
+identities (`moderated_by`/`reviewed_by`), moderators' private report notes
+and storage paths are left out; the moderation note addressed to the member
+is kept. Added what was missing: favorites, and a 7-day signed download link
+for every photo (private ones included — they're the member's own). A silent
+photo-access decline is exported as "pending", never "denied".
+
+**Also fixed (found while testing the export):** a moderator/admin who had ever
+acted on something could not be deleted — `profiles.moderated_by`,
+`profile_photos.moderated_by`, `reports.reviewed_by` and
+`admin_audit_log.admin_user_id` referenced `auth.users` with no delete rule, so
+the database refused and the auth API answered a bare 500. They are now
+`ON DELETE SET NULL` (migration `20261115100000_moderator_references_set_null.sql`;
+the audit log's `admin_user_id` is nullable and `admin/audit-log.tsx` shows
+"Compte supprimé"): the moderated records and audit entries stay, only the
+pointer to the person who acted is dropped.
+
 ### Reliability fixes (done)
 
 - **API is deployable**: `npm run build -w apps/api` now bundles to a single
