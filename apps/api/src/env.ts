@@ -15,6 +15,10 @@ const envSchema = z.object({
     .transform((value) =>
       value === "false" ? false : value === "true" ? true : value,
     ),
+  // Layer-1 per-IP request ceiling (see app.ts). The default is the production
+  // value; the integration test suite raises it because it fires far more than
+  // 300 requests a minute from one address.
+  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
   SUPABASE_URL: z.string().url(),
   // Non-secret — same value as apps/web's VITE_SUPABASE_PUBLISHABLE_KEY.
   // Used as the base client key for request-scoped (RLS-respecting) calls.

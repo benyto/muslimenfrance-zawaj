@@ -12,6 +12,62 @@
 -- reference tables use (it currently has none — even the anon key can read
 -- it), a search index, and a FK tying its `dep_code` to the new
 -- `departments` table.
+--
+-- The CREATE below is a no-op on this project (the table is already there, so
+-- `if not exists` skips it) and exists only so the migrations can be replayed
+-- on an EMPTY database — CI starts one, and so would a new environment —
+-- where nothing else ever creates the table. It mirrors the live definition
+-- exactly (columns, types, primary key); the data itself is not part of any
+-- migration, so a fresh database simply has no communes until loaded.
+create table if not exists public.communes_fr (
+  csv_index bigint,
+  code_insee varchar(10) not null primary key,
+  nom_standard varchar(255),
+  nom_sans_pronom varchar(255),
+  nom_a varchar(255),
+  nom_de varchar(255),
+  nom_sans_accent varchar(255),
+  nom_standard_majuscule varchar(255),
+  typecom varchar(10),
+  typecom_texte varchar(100),
+  reg_code varchar(10),
+  reg_nom varchar(100),
+  dep_code varchar(10),
+  dep_nom varchar(100),
+  canton_code varchar(20),
+  canton_nom varchar(255),
+  epci_code varchar(20),
+  epci_nom varchar(255),
+  academie_code varchar(10),
+  academie_nom varchar(100),
+  code_postal varchar(10),
+  codes_postaux text,
+  zone_emploi varchar(20),
+  code_insee_centre_zone_emploi varchar(20),
+  code_unite_urbaine varchar(20),
+  nom_unite_urbaine varchar(255),
+  taille_unite_urbaine numeric,
+  type_commune_unite_urbaine varchar(100),
+  statut_commune_unite_urbaine varchar(100),
+  population integer,
+  superficie_hectare numeric,
+  superficie_km2 numeric,
+  densite numeric,
+  altitude_moyenne numeric,
+  altitude_minimale numeric,
+  altitude_maximale numeric,
+  latitude_mairie numeric(10,6),
+  longitude_mairie numeric(10,6),
+  latitude_centre numeric(10,6),
+  longitude_centre numeric(10,6),
+  grille_densite varchar(20),
+  grille_densite_texte varchar(255),
+  niveau_equipements_services numeric,
+  niveau_equipements_services_texte varchar(255),
+  gentile varchar(255),
+  url_wikipedia text,
+  url_villedereve text
+);
 
 create table public.regions (
   code text primary key,

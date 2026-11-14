@@ -13,10 +13,16 @@ import { cn } from "~/lib/cn";
 export type PhotoVariant = "thumb" | "display";
 
 const BUCKET = "profile-photos";
-const SIGNED_URL_TTL_SECONDS = 3600;
+// How long a link keeps working once handed out. It is a bearer URL, so this is
+// also roughly how long someone who already has one can still load a photo
+// after it is deleted or their access is withdrawn (new links are refused at
+// once): Storage serves the photo with an Expires equal to this lifetime, so
+// browsers and the CDN may keep it that long. Keep PHOTO_CACHE_SECONDS in the
+// API's photos/storage.ts equal to it.
+const SIGNED_URL_TTL_SECONDS = 10 * 60;
 // Refresh well before the URL expires, so a tab left open never hands an
 // <img> a dead link.
-const REFRESH_MS = 50 * 60_000;
+const REFRESH_MS = 8 * 60_000;
 
 const objectPath = (key: string, variant: PhotoVariant) => `${key}/${variant}.webp`;
 

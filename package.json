@@ -15,7 +15,8 @@
     "dev:api": "npm run dev -w apps/api",
     "build": "npm run build -w apps/web && npm run build -w apps/api",
     "typecheck": "npm run typecheck -w apps/web && npm run typecheck -w apps/api",
-    "lint": "eslint . --ext .ts,.tsx"
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "npm test -w @rencontre/api"
   },
   "devDependencies": {
     "concurrently": "^9",

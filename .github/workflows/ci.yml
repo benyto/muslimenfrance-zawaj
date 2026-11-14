@@ -41,3 +41,75 @@ jobs:
           done
           kill $pid
           echo "API did not become healthy" && exit 1
+
+  # Integration tests: the real built API against a real (local, throwaway)
+  # Supabase stack built from this repo's migrations. This is what proves the
+  # database rules — row-level security, the server-only functions, the photo
+  # access rule on Storage — actually hold, rather than just compile.
+  # The suite refuses to run against anything but a local stack (see
+  # apps/api/test/helpers/env.ts).
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Runner-only tweak (nothing is committed): the suite signs in dozens of
+      # throwaway members within seconds, which the default 30-per-5-minutes
+      # per-IP auth throttle would reject. The real project's setting is
+      # untouched.
+      - name: Lift the local auth throttle
+        run: |
+          sed -i -E 's/^(token_verifications|sign_in_sign_ups) = .*/\1 = 100000/' supabase/config.toml
+          grep -nE '^(token_verifications|sign_in_sign_ups)' supabase/config.toml
+
+      # Only what the API and the tests talk to: Postgres, Auth, REST, Storage
+      # and the gateway.
+      - name: Start local Supabase
+        run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,supavisor,postgres-meta,realtime,mailpit
+
+      - run: npm run build
+
+      - name: Start the built API
+        run: |
+          set -a
+          eval "$(supabase status -o env)"
+          set +a
+          {
+            echo "TEST_SUPABASE_URL=${API_URL}"
+            echo "TEST_SUPABASE_ANON_KEY=${ANON_KEY:-$PUBLISHABLE_KEY}"
+            echo "TEST_SUPABASE_SERVICE_KEY=${SERVICE_ROLE_KEY:-$SECRET_KEY}"
+          } >> "$GITHUB_ENV"
+          PORT=8787 \
+          CORS_ORIGIN=http://localhost:5173 \
+          SITE_URL=http://localhost:5173 \
+          SUPABASE_URL="${API_URL}" \
+          SUPABASE_PUBLISHABLE_KEY="${ANON_KEY:-$PUBLISHABLE_KEY}" \
+          SUPABASE_SECRET_KEY="${SERVICE_ROLE_KEY:-$SECRET_KEY}" \
+          STRIPE_SECRET_KEY=sk_test_ci \
+          STRIPE_WEBHOOK_SECRET=whsec_ci_tests \
+          RESEND_API_KEY=re_ci \
+          RATE_LIMIT_MAX=100000 \
+          node apps/api/dist/server.js > api.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8787/health; then exit 0; fi
+            sleep 1
+          done
+          echo "API did not become healthy"; cat api.log; exit 1
+
+      - name: Run the integration tests
+        env:
+          TEST_API_URL: http://localhost:8787
+          TEST_STRIPE_WEBHOOK_SECRET: whsec_ci_tests
+        run: npm test -w @rencontre/api
+
+      - name: API log
+        if: failure()
+        run: tail -n 200 api.log

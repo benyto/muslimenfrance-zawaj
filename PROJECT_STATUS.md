@@ -289,6 +289,42 @@ expired ("Expired API Key provided"). Roll a new one before testing
 checkout or subscriptions. The live-subscription cancellation path on
 account deletion has therefore not been exercised against real Stripe objects.
 
+### Integration tests (done)
+
+`npm test` (root) runs `apps/api/test/*.test.ts` with `node:test` + `tsx`
+against a **real Supabase stack and the real running API** — not mocks. It
+covers messaging (create/reuse conversation, sender can't be spoofed, ignore
+semantics, paywall, history cursor with tied timestamps, email-slot claims),
+reports (target validation, one open report per target), photo upload
+(re-encode, orientation, EXIF/GPS stripped, SVG/corrupt/oversized refused,
+ten-photo cap), photo deletion, who can see which photo (pending / approved /
+private grants / withdrawn / unapproved viewer), account export (internal
+fields excluded, working photo links, declined request shown as pending),
+account deletion (files and rows removed, others untouched), moderator
+deletion, admin authorization, the Stripe webhook's signature checks and
+claim/retry state machine, the paginator, and that clients can't write
+server-only tables.
+
+- **Safety guard**: `test/helpers/env.ts` refuses to start unless
+  `TEST_SUPABASE_URL` is a local address (override:
+  `ALLOW_REMOTE_TEST_DB=yes-this-database-may-receive-test-data`). Every
+  throwaway user is `test-<run id>-…@rencontre.invalid` and is removed in
+  `after()`; the last file (`zz-no-leftovers`) fails if anything remains.
+- **Env**: `TEST_SUPABASE_URL`, `TEST_SUPABASE_ANON_KEY`,
+  `TEST_SUPABASE_SERVICE_KEY`, `TEST_API_URL` (default `localhost:8787`),
+  `TEST_STRIPE_WEBHOOK_SECRET` (same as the API's `STRIPE_WEBHOOK_SECRET`;
+  the webhook tests skip without it). Start the API for tests with
+  `RATE_LIMIT_MAX=100000` and a dummy `RESEND_API_KEY`.
+- **CI**: the `test` job in `.github/workflows/ci.yml` does
+  `supabase start` (migrations replay from scratch), lifts the local auth
+  throttle on the runner only, builds and starts the API, and runs the suite.
+- **Not covered**: Stripe events that read back from Stripe (checkout /
+  subscription updated|deleted / invoice) need the real Stripe API; the
+  browser UI (no component or e2e tests yet).
+- On a *hosted* project the suite works but is slow: Supabase throttles
+  magic-link verification to 30 per 5 minutes per IP, so member creation
+  waits it out.
+
 ## Known gaps / deliberately deferred
 
 - **Phase 11 (launch/cutover)** — not started: DNS, redirecting the

@@ -49,7 +49,7 @@ export async function buildApp() {
   // it, and would key on an unverified token claim.
   await app.register(rateLimit, {
     global: true,
-    max: 300,
+    max: env.RATE_LIMIT_MAX,
     timeWindow: "1 minute",
     // Stripe's webhook is signature-verified and must never be throttled —
     // a dropped event means a subscription silently drifts out of sync.

@@ -9,7 +9,8 @@
     "dev": "NODE_ENV=development tsx watch src/server.ts",
     "build": "tsc --noEmit && node scripts/build.mjs",
     "start": "node dist/server.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test --test-concurrency=1 test/*.test.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11",

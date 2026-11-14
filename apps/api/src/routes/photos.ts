@@ -56,6 +56,11 @@ export async function photoRoutes(fastify: FastifyInstance) {
       } catch {
         return reply.code(413).send({ error: "Photo trop lourde (12 Mo maximum)" });
       }
+      // The parser cuts an oversized file off at the limit; treating those
+      // first 12 MB as a complete image would report it as a broken one.
+      if (file.file.truncated) {
+        return reply.code(413).send({ error: "Photo trop lourde (12 Mo maximum)" });
+      }
 
       let processed;
       try {
