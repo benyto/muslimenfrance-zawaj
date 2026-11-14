@@ -1,15 +1,21 @@
-// The monolith's photos live on a different UploadThing app
-// (br4z1rtmqx.ufs.sh) than this project's (y8z0mztmgr.ufs.sh per
-// apps/api/.env's UPLOADTHING_TOKEN) — UploadThing keys/URLs are
-// app-scoped, so there is no cheaper "flip the ACL in place" option here;
-// every file has to be actually copied. uploadFilesFromUrl does the
-// download+reupload in one call.
+// The monolith's photos are public UploadThing files (br4z1rtmqx.ufs.sh).
+// Each one is downloaded, pushed through the same decode / re-encode pipeline
+// new uploads use (apps/api/src/lib/photos/process.ts: WebP, EXIF/GPS dropped,
+// thumb + display sizes), stored in the private `profile-photos` bucket, and
+// recorded in profile_photos with its storage_key.
 //
-// All 23 monolith profiles are status='published' (none pending/blocked),
-// so per the plan every migrated photo starts moderation_status='approved'
-// — they were already publicly live, this isn't skipping real moderation.
-import { rencontre, utapi } from "./lib/clients.js";
+// Run from apps/api so sharp resolves:
+//   cd apps/api && npx tsx ../../scripts/migration/05-migrate-photos.ts
+//
+// All 23 monolith profiles are status='published' (none pending/blocked), so
+// per the plan every migrated photo starts moderation_status='approved' and
+// 'public' — they were already publicly live, this isn't skipping real
+// moderation. (New uploads, by contrast, start private and pending.)
+import { rencontre } from "./lib/clients.js";
 import { readOutput } from "./lib/io.js";
+import { processPhoto } from "../../apps/api/src/lib/photos/process.js";
+
+const BUCKET = "profile-photos";
 
 type MonolithPhoto = {
   id: string;
@@ -25,31 +31,47 @@ async function main() {
   const now = new Date().toISOString();
   let succeeded = 0;
   const failed: { id: string; url: string; error: string }[] = [];
+  const fail = (photo: MonolithPhoto, message: string) => {
+    console.error(`FAILED ${photo.id} (${photo.url}): ${message}`);
+    failed.push({ id: photo.id, url: photo.url, error: message });
+  };
 
   for (const photo of photos) {
-    const result = await utapi.uploadFilesFromUrl(photo.url);
-    if (result.error) {
-      console.error(`FAILED ${photo.id} (${photo.url}): ${result.error.message}`);
-      failed.push({ id: photo.id, url: photo.url, error: result.error.message });
+    // Same layout as apps/api/src/lib/photos/storage.ts: two objects under
+    // "<profile_id>/<photo_id>", which is what storage_key records.
+    const storageKey = `${photo.profile_dating_id}/${photo.id}`;
+    try {
+      const response = await fetch(photo.url);
+      if (!response.ok) throw new Error(`download failed (HTTP ${response.status})`);
+      const { thumb, display } = await processPhoto(Buffer.from(await response.arrayBuffer()));
+
+      const bucket = rencontre.storage.from(BUCKET);
+      const options = { contentType: "image/webp", upsert: true, cacheControl: "3600" };
+      const thumbUpload = await bucket.upload(`${storageKey}/thumb.webp`, thumb, options);
+      if (thumbUpload.error) throw thumbUpload.error;
+      const displayUpload = await bucket.upload(`${storageKey}/display.webp`, display, options);
+      if (displayUpload.error) throw displayUpload.error;
+    } catch (err) {
+      fail(photo, (err as Error).message);
       continue;
     }
 
     const { error } = await rencontre.from("profile_photos").insert({
       id: photo.id,
       profile_id: photo.profile_dating_id,
-      uploadthing_key: result.data.key,
+      storage_key: storageKey,
       position: photo.position,
       moderation_status: "approved",
+      visibility: "public",
       moderated_at: now,
       created_at: photo.created_at,
     });
     if (error) {
-      console.error(`FAILED to insert row for ${photo.id}: ${error.message}`);
-      failed.push({ id: photo.id, url: photo.url, error: error.message });
+      fail(photo, error.message);
       continue;
     }
 
-    console.log(`${photo.id} -> ${result.data.key}`);
+    console.log(`${photo.id} -> ${storageKey}`);
     succeeded++;
   }
 

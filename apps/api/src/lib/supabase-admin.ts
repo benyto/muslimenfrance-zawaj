@@ -4,7 +4,7 @@ import { env } from "../env.js";
 
 // Service-role client — bypasses RLS entirely. Used only for privileged
 // operations the API explicitly performs on a caller's behalf (moderation,
-// Stripe/UploadThing webhooks, GDPR export/delete). Never pass this client
+// Stripe webhooks, photo storage, GDPR export/delete). Never pass this client
 // or its key to anything request-scoped that a caller could influence.
 export const supabaseAdmin = createClient<Database>(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
   auth: {

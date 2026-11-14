@@ -19,7 +19,7 @@ import {
   useModerateProfile,
   useModeratePhoto,
 } from "~/lib/queries/useAdmin";
-import { photoUrl } from "~/lib/queries/usePhotos";
+import { PhotoImg, usePhotoUrls } from "~/lib/photo-urls";
 import { Sheet, ConfirmDialog } from "~/components/ui/sheet";
 import { PhotoLightbox } from "~/components/ui/lightbox";
 import { Badge, Skeleton } from "~/components/ui/primitives";
@@ -68,7 +68,12 @@ export function AdminProfileDetailSheet({
   const age = profile
     ? Math.floor((Date.now() - new Date(profile.birthdate).getTime()) / (365.25 * 24 * 60 * 60 * 1000))
     : null;
-  const photoUrls = photos?.map((p) => photoUrl(p.uploadthing_key)) ?? [];
+  // Admins can sign every photo (can_read_photo_object), pending and private
+  // ones included. Full size only once the lightbox is open.
+  const photoKeys = photos?.map((p) => p.storage_key) ?? [];
+  const thumbUrls = usePhotoUrls(photoKeys, "thumb");
+  const displayUrls = usePhotoUrls(photoKeys, "display", lightboxIndex !== null);
+  const photoUrls = photoKeys.map((_, i) => displayUrls[i] ?? thumbUrls[i] ?? "");
 
   return (
     <>
@@ -100,8 +105,9 @@ export function AdminProfileDetailSheet({
                         onClick={() => setLightboxIndex(i)}
                         className="aspect-square w-full overflow-hidden rounded-lg"
                       >
-                        <img
-                          src={photoUrl(photo.uploadthing_key)}
+                        <PhotoImg
+                          photoKey={photo.storage_key}
+                          variant="thumb"
                           alt={`Photo ${i + 1}`}
                           className="h-full w-full object-cover"
                         />

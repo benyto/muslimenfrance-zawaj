@@ -2,7 +2,7 @@
 
 Standalone dating/matchmaking SPA extracted from the muslimenfrance monolith —
 own Supabase project, own schema, own UI/admin, own backend, Supabase
-Realtime messaging, UploadThing (restricted mode), Resend email, Stripe
+Realtime messaging, Supabase Storage (private photos), Resend email, Stripe
 subscriptions with a trial period. See the project plan for the full
 architecture and rationale.
 
@@ -14,7 +14,7 @@ architecture and rationale.
 - **apps/api** — Node.js + Fastify, self-hosted on the same VPS/server as
   muslimenfrance (not Supabase Edge Functions — a deliberate choice to keep
   the whole privileged backend under our own hosting). Holds every secret
-  (`SUPABASE_SECRET_KEY`, Stripe/Resend/UploadThing credentials once those
+  (`SUPABASE_SECRET_KEY`, Stripe/Resend credentials once those
   phases land) and exposes one JSON route per privileged operation. See
   `apps/api/src/app.ts` for the route inventory as it grows.
 - **packages/shared** — Zod validation schemas and generated DB types, shared

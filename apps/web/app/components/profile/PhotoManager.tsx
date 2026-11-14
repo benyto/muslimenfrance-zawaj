@@ -1,8 +1,9 @@
 import { useCallback, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { Globe, Lock, Trash2 } from "lucide-react";
-import { useUploadThing, authHeaders } from "~/lib/uploadthing";
-import { usePhotos, useInvalidatePhotos, useSetPhotoVisibility, photoUrl } from "~/lib/queries/usePhotos";
+import { usePhotos, useSetPhotoVisibility } from "~/lib/queries/usePhotos";
+import { useUploadPhotos } from "~/lib/queries/useUploadPhotos";
+import { PhotoImg } from "~/lib/photo-urls";
 import { useDeletePhoto } from "~/lib/queries/useDeletePhoto";
 import { cn } from "~/lib/cn";
 import { ConfirmDialog } from "~/components/ui/sheet";
@@ -65,35 +66,29 @@ function VisibilitySwitch({
 
 export function PhotoManager({ profileId }: { profileId: string }) {
   const { data: photos } = usePhotos(profileId);
-  const invalidatePhotos = useInvalidatePhotos();
   const deletePhoto = useDeletePhoto(profileId);
   const setVisibility = useSetPhotoVisibility(profileId);
-  const [uploadError, setUploadError] = useState<string | null>(null);
   const [photoToDelete, setPhotoToDelete] = useState<string | null>(null);
 
-  const { startUpload, isUploading } = useUploadThing("profileDatingPhotos", {
-    headers: authHeaders,
-    onClientUploadComplete: () => {
-      setUploadError(null);
-      invalidatePhotos(profileId);
-    },
-    onUploadError: (error) => setUploadError(error.message),
-  });
+  const upload = useUploadPhotos(profileId);
+  const isUploading = upload.isPending;
 
   const remaining = MAX_PHOTOS - (photos?.length ?? 0);
 
   const onDrop = useCallback(
     (accepted: File[]) => {
       if (accepted.length === 0) return;
-      startUpload(accepted.slice(0, remaining));
+      upload.mutate(accepted.slice(0, remaining));
     },
-    [startUpload, remaining]
+    [upload, remaining]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: { "image/*": [] },
-    maxSize: 4 * 1024 * 1024,
+    // Listed explicitly rather than "image/*": phones then hand over JPEG
+    // instead of HEIC, which the server can't decode.
+    accept: { "image/jpeg": [], "image/png": [], "image/webp": [] },
+    maxSize: 12 * 1024 * 1024,
     disabled: isUploading || remaining <= 0,
   });
 
@@ -126,7 +121,7 @@ export function PhotoManager({ profileId }: { profileId: string }) {
           return (
             <div key={photo.id}>
               <div className="group relative aspect-square overflow-hidden rounded-xl bg-sunken">
-                <img src={photoUrl(photo.uploadthing_key)} alt="" className="h-full w-full object-cover" />
+                <PhotoImg photoKey={photo.storage_key} variant="thumb" alt="" className="h-full w-full object-cover" />
                 {status && (
                   <span className={`absolute left-1 top-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${status.className}`}>
                     {status.label}
@@ -162,11 +157,16 @@ export function PhotoManager({ profileId }: { profileId: string }) {
           }`}
         >
           <input {...getInputProps()} />
-          {isUploading ? "Envoi en cours..." : `Glissez des photos ici, ou cliquez pour en choisir (${remaining} restantes, 4 Mo max)`}
+          {isUploading ? "Envoi en cours..." : `Glissez des photos ici, ou cliquez pour en choisir (${remaining} restantes, JPEG, PNG ou WebP, 12 Mo max)`}
         </div>
       )}
 
-      {uploadError && <p className="mt-2 text-sm text-danger">{uploadError}</p>}
+      {upload.isError && <p className="mt-2 text-sm text-danger">{(upload.error as Error).message}</p>}
+      {upload.data?.errors.map((message) => (
+        <p key={message} className="mt-2 text-sm text-danger">
+          {message}
+        </p>
+      ))}
       {deletePhoto.isError && (
         <p className="mt-2 text-sm text-danger">
           La photo n&apos;a pas pu être supprimée : {(deletePhoto.error as Error).message}

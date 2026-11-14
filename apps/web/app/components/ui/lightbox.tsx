@@ -117,7 +117,7 @@ export function PhotoLightbox({
           )}
 
           <img
-            src={photos[index]}
+            src={photos[index] || undefined}
             alt={`Photo ${index + 1} sur ${photos.length}`}
             className="max-h-[85dvh] max-w-[92vw] rounded-lg object-contain"
           />

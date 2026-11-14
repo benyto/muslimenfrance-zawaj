@@ -14,7 +14,7 @@ type Export = {
   blocks: { id: string }[];
 };
 
-type MigratedTable = "profiles" | "profile_photos" | "conversations" | "messages" | "user_blocks";
+type MigratedTable = "profiles" | "profile_photos" | "conversations" | "messages" | "profile_ignores";
 
 async function count(table: keyof Database["public"]["Tables"] & MigratedTable) {
   const { count, error } = await rencontre.from(table).select("*", { count: "exact", head: true });
@@ -31,7 +31,7 @@ async function main() {
     ["profile_photos", exported.photos.length],
     ["conversations", exported.conversations.length],
     ["messages", exported.messages.length],
-    ["user_blocks", exported.blocks.length],
+    ["profile_ignores", exported.blocks.length],
   ];
 
   console.log("--- row count diffs ---");

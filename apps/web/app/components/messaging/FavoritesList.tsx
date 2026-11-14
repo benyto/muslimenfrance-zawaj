@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { Heart } from "lucide-react";
 import { useFavorites, useRemoveFavorite, type Favorite } from "~/lib/queries/useFavorites";
 import { usePresenceStatus } from "~/lib/realtime/usePresence";
-import { photoUrl } from "~/lib/queries/usePhotos";
+import { usePhotoUrl } from "~/lib/photo-urls";
 import { cn } from "~/lib/cn";
 import { Avatar, EmptyState, Skeleton } from "~/components/ui/primitives";
 import { ButtonLink } from "~/components/ui/button";
@@ -79,6 +79,7 @@ function FavoriteRow({
   removePending: boolean;
 }) {
   const presence = usePresenceStatus(f.last_seen_at);
+  const photo = usePhotoUrl(f.photo_key, "thumb");
 
   return (
     <li className="relative">
@@ -95,7 +96,7 @@ function FavoriteRow({
           className="flex min-w-0 flex-1 items-center gap-3"
         >
           <Avatar
-            src={f.photo_key ? photoUrl(f.photo_key) : null}
+            src={photo ?? null}
             name={f.nickname ?? "?"}
             size="lg"
             presence={presence}

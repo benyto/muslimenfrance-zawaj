@@ -2,7 +2,6 @@ import Fastify from "fastify";
 import cors from "@fastify/cors";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
-import { createRouteHandler } from "uploadthing/fastify";
 import { env } from "./env.js";
 import { authPlugin } from "./plugins/auth.js";
 import { healthRoutes } from "./routes/health.js";
@@ -12,7 +11,6 @@ import { reportRoutes } from "./routes/reports.js";
 import { stripeRoutes, stripeWebhookRoutes } from "./routes/stripe.js";
 import { adminRoutes } from "./routes/admin.js";
 import { gdprRoutes } from "./routes/gdpr.js";
-import { uploadRouter } from "./uploadthing/router.js";
 
 // Separated from server.ts (which calls listen()) so tests can build the
 // app and inject requests without binding a real port.
@@ -67,10 +65,6 @@ export async function buildApp() {
   // Own encapsulated scope: registers a raw-body content-type parser that
   // must not leak into any other route's normal JSON body parsing.
   await app.register(stripeWebhookRoutes);
-  await app.register(createRouteHandler, {
-    router: uploadRouter,
-    config: { token: env.UPLOADTHING_TOKEN },
-  });
   await app.register(adminRoutes);
   await app.register(gdprRoutes);
 

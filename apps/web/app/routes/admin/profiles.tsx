@@ -6,7 +6,7 @@ import {
   PROFILES_PAGE_SIZE,
   type AdminProfileSearchRow,
 } from "~/lib/queries/useAdmin";
-import { photoUrl } from "~/lib/queries/usePhotos";
+import { usePhotoUrl } from "~/lib/photo-urls";
 import { AdminProfileDetailSheet } from "~/components/admin/AdminProfileDetailSheet";
 import { Avatar, Badge, Chip, Skeleton, EmptyState } from "~/components/ui/primitives";
 import { Input, Select } from "~/components/ui/form";
@@ -238,12 +238,13 @@ function ProfileListRow({
   const age = Math.floor(
     (Date.now() - new Date(profile.birthdate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)
   );
+  const photo = usePhotoUrl(profile.primary_photo_key, "thumb");
 
   return (
     <li className="flex items-center gap-3 px-4 py-3">
       <button type="button" onClick={onOpen} className="flex min-w-0 flex-1 items-center gap-3 text-left">
         <Avatar
-          src={profile.primary_photo_key ? photoUrl(profile.primary_photo_key) : null}
+          src={photo ?? null}
           name={profile.nickname}
           size="md"
         />

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { supabaseAdmin } from "../lib/supabase-admin.js";
 import { stripe } from "../lib/stripe.js";
+import { removePhotoObjects } from "../lib/photos/storage.js";
 import { userRateLimit } from "../lib/user-rate-limit.js";
 
 export async function gdprRoutes(fastify: FastifyInstance) {
@@ -158,6 +159,34 @@ export async function gdprRoutes(fastify: FastifyInstance) {
           request.log.error(err, "Failed to cancel Stripe subscription before account deletion");
           return reply.code(502).send({
             error: "Impossible d'annuler votre abonnement pour le moment. Réessayez dans un instant.",
+          });
+        }
+      }
+
+      // Delete the stored photo files while the rows that name them still
+      // exist: the cascade below removes those rows, after which nothing
+      // would say which objects belong to this member. A failure here stops
+      // the deletion rather than leaving their photos in storage.
+      const { data: ownProfile } = await supabaseAdmin
+        .from("profiles")
+        .select("id")
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (ownProfile) {
+        const { data: photoRows, error: photoRowsError } = await supabaseAdmin
+          .from("profile_photos")
+          .select("storage_key")
+          .eq("profile_id", ownProfile.id);
+        if (photoRowsError) {
+          request.log.error(photoRowsError, "Failed to list photos before account deletion");
+          return reply.code(500).send({ error: "Échec de la suppression du compte" });
+        }
+        const keys = (photoRows ?? []).flatMap((row) => (row.storage_key ? [row.storage_key] : []));
+        const { error: removeError } = await removePhotoObjects(keys);
+        if (removeError) {
+          request.log.error(removeError, "Failed to remove photo files before account deletion");
+          return reply.code(502).send({
+            error: "Impossible de supprimer vos photos pour le moment. Réessayez dans un instant.",
           });
         }
       }

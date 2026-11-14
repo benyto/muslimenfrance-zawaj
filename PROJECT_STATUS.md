@@ -2,7 +2,7 @@
 
 A standalone dating/matrimonial SPA extracted from the `muslimenfrance`
 monolith: own Supabase project, own schema, own UI/admin, own backend,
-Supabase Realtime messaging, UploadThing photos, Resend email, Stripe
+Supabase Realtime messaging, Supabase Storage photos, Resend email, Stripe
 subscriptions with a trial period. Branded "zawaj" for members, "Rencontre"
 internally.
 
@@ -19,7 +19,7 @@ rationale and decision log, see the plan file the project was built from.
 | Database | Supabase Postgres, RLS everywhere, migrations in `supabase/migrations` |
 | Shared | `packages/shared` — Zod schemas + generated DB types, used by both apps |
 | Auth | Magic link / email OTP only, no passwords |
-| Photos | UploadThing |
+| Photos | Supabase Storage (private bucket, signed URLs) |
 | Payments | Stripe (checkout, portal, webhooks, trial period) |
 | Email | Resend |
 | Realtime | Supabase Realtime (`postgres_changes` + Presence) |
@@ -34,7 +34,7 @@ rationale and decision log, see the plan file the project was built from.
 - **Profiles**: full CRUD form (27 fields incl. bio, looking-for, origin
   country), GDPR Art. 9 consent capture, moderation workflow
   (pending/approved/rejected/disabled).
-- **Photos**: UploadThing upload, moderation queue, reordering.
+- **Photos**: upload through the API into a private Supabase Storage bucket, moderation queue, reordering.
 - **Private photos**: each photo is public or private
   (`profile_photos.visibility`, chosen with the Publique/Privée switch under
   each photo in PhotoManager). New uploads default to **private** — an
@@ -49,11 +49,9 @@ rationale and decision log, see the plan file the project was built from.
   / `set_photo_access` RPCs. Enforced where keys are handed out:
   `get_profile_detail`, `search_profiles`, `get_my_conversations` and
   `get_my_favorites` omit private keys unless the caller holds a grant
-  (`can_view_private_photos`). **Known limit:** files are still public-read
-  on UploadThing, so this withholds the key rather than gating the URL — a
-  member who was granted access and saved a link keeps it after a revoke.
-  Closing that needs UploadThing private ACL + signed URLs (the existing
-  `TODO(private mode)` in `apps/api/src/uploadthing/router.ts`).
+  (`can_view_private_photos`). Since the move to Supabase Storage the bucket
+  itself enforces it too (see "Photo storage" below): an image can only be
+  shown with a signed URL, and Storage signs only what the caller may read.
 - **Discovery**: filtered browse (`search_profiles` RPC), URL-driven filter
   state, report/ignore.
 - **Messaging**: 1:1 conversations, Supabase Realtime delivery, typing
@@ -171,7 +169,7 @@ explicit call, not an oversight.
 Clients can no longer insert or delete in `profile_photos`, `messages`,
 `conversations` or `reports` — they keep SELECT (plus the two photo column
 updates). Everything goes through `apps/api` with the service role, which
-validates first: photo rows come only from the UploadThing callback (and a
+validates first: photo rows come only from `POST /photos` (and a
 key can belong to one row), sending goes through the service-role-only
 `send_message_command()` (finds/creates the canonical conversation and
 inserts the message in one transaction), and reports check the target exists
@@ -179,6 +177,53 @@ and that a message reporter took part in it. Migration
 `20261111090000_server_only_writes.sql`; verified with rolled-back
 two-identity SQL tests. The query cache is also cleared whenever the signed-in
 user changes (`useClearCacheOnIdentityChange`).
+
+### Photo storage — Supabase Storage (done)
+
+Photos moved off UploadThing (public-read files) into a **private**
+`profile-photos` bucket. Every photo is two WebP objects,
+`<profile_id>/<photo_id>/thumb.webp` (≤640×800) and `display.webp` (≤1600),
+and `profile_photos.storage_key` is `<profile_id>/<photo_id>` (the RPCs keep
+returning it as `photo_key` / `photo_keys` / `primary_photo_key`).
+
+- **Upload** is `POST /photos` (multipart, 12 MB cap, 10 photos per member —
+  also enforced by a DB trigger). The API decodes the file with `sharp`
+  (so what's stored is a real image, not whatever the client claimed),
+  re-encodes it, and **drops all metadata** — EXIF GPS and camera serials
+  never reach storage; EXIF orientation is applied first so photos don't turn
+  sideways. The original is discarded. SVG, HEIC and corrupt files are
+  refused. New photos start **private** and pending.
+- **Reading** needs a signed URL, and Storage only signs an object the
+  caller's `SELECT` policy lets them read: `can_read_photo_object()` allows
+  the owner, admins/moderators, and other *approved* members when the photo is
+  approved, its owner is approved and live, and it is public — or private with
+  a grant in `photo_access`. Members hold no write policy on the bucket at
+  all. A leaked path is therefore useless to anyone the rule refuses, and
+  withdrawing access stops *new* URLs at once.
+- **Honest limit:** a URL signed *before* access was withdrawn keeps working
+  until it expires (1 h). Shorten `SIGNED_URL_TTL_SECONDS` in
+  `apps/web/app/lib/photo-urls.tsx` if that window matters.
+- **Frontend:** `photoUrl(key)` is gone. `usePhotoUrl` / `usePhotoUrls` /
+  `<PhotoImg>` (`lib/photo-urls.tsx`) batch every URL requested in the same
+  render into one `createSignedUrls` call, cache for 50 min and refresh before
+  expiry. Grids use the thumbnail; the full size is fetched only when the
+  lightbox opens.
+- **Account deletion** removes the member's stored photos first, and refuses to
+  proceed if that fails.
+- Not used on purpose: Supabase's on-the-fly image transformations (billed per
+  distinct original, $5/1,000 after 100/month) — resizing happens once, at upload.
+- Migrations `20261114100000` (bucket, access rule, `storage_key`) and
+  `20261114110000` (RPCs switched over, `uploadthing_key` dropped);
+  a one-off script copied the 35 existing photos (since removed: it read the dropped
+  `uploadthing_key` column; `scripts/migration/05-migrate-photos.ts` now imports
+  straight from the monolith into Storage).
+
+**Still to do for this:** the 35 original files are still on UploadThing, **still
+publicly readable** at their old URLs. Delete them (and the UploadThing app)
+once you're satisfied with the new storage — until then the old exposure exists,
+just unreferenced. `UPLOADTHING_TOKEN` (apps/api/.env) and
+`VITE_UPLOADTHING_APP_ID` (apps/web/.env.local) are no longer read by the app and
+can be removed, as can `RENCONTRE_UPLOADTHING_TOKEN` in `scripts/migration/.env.local`.
 
 ### Reliability fixes (done)
 
@@ -203,22 +248,6 @@ account deletion has therefore not been exercised against real Stripe objects.
 
 ## Known gaps / deliberately deferred
 
-- **Move photo storage from UploadThing to Supabase Storage** — decided,
-  not started (~1.5–2 days). Why: private-photo rules can then live in
-  Postgres policies on `storage.objects` (reusing `photo_access`), so a
-  leaked path stops working at the next signing and revocation is real —
-  this is what actually closes the "private photos are only hidden" gap;
-  one vendor instead of two; EU storage (project is eu-west-1). Plan:
-  private bucket; the API receives uploads, verifies it is a real image,
-  re-encodes with `sharp` (strips EXIF/GPS, writes a thumbnail + display
-  size, discards the original); the UI batches `createSignedUrls` behind a
-  `usePhotoUrl` hook (replacing the synchronous `photoUrl(key)`); one-off
-  script migrates the 35 existing photos; then drop `uploadthing`,
-  `@uploadthing/react` and the callback route. **Don't** use Supabase's
-  on-the-fly image transformations — billed per distinct original
-  ($5/1,000 after 100/month on Pro). Supersedes the `TODO(private mode)`
-  in `apps/api/src/uploadthing/router.ts` and the UploadThing half of
-  account deletion.
 - **Phase 11 (launch/cutover)** — not started: DNS, redirecting the
   monolith's old `/dating` routes, decommissioning old dating tables there,
   deploying `apps/api` on the VPS. This needs the user to actually be ready

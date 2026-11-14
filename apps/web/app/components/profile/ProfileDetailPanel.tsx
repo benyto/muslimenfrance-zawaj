@@ -21,7 +21,7 @@ import { useIgnoreProfile, useIsIgnored, useUnignoreProfile } from "~/lib/querie
 import { useAddFavorite, useIsFavorited, useRemoveFavorite } from "~/lib/queries/useFavorites";
 import { useRequestPhotoAccess } from "~/lib/queries/usePhotoAccess";
 import { usePresenceStatus } from "~/lib/realtime/usePresence";
-import { photoUrl } from "~/lib/queries/usePhotos";
+import { PhotoImg, usePhotoUrls } from "~/lib/photo-urls";
 import { cn } from "~/lib/cn";
 import { PhotoLightbox } from "~/components/ui/lightbox";
 import { Button } from "~/components/ui/button";
@@ -78,6 +78,11 @@ export function ProfileDetailPanel({
   const removeFavorite = useRemoveFavorite();
   const requestPhotoAccess = useRequestPhotoAccess();
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  // Grid cells use the small version; the full-size one is only fetched once
+  // the lightbox is opened, and the thumbnail stands in until it arrives.
+  const photoKeys = profile?.photo_keys ?? [];
+  const thumbUrls = usePhotoUrls(photoKeys, "thumb");
+  const displayUrls = usePhotoUrls(photoKeys, "display", lightboxIndex !== null);
 
   if (isLoading) return null;
 
@@ -119,8 +124,9 @@ export function ProfileDetailPanel({
                   onClick={() => setLightboxIndex(i)}
                   className="aspect-square overflow-hidden rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
                 >
-                  <img
-                    src={photoUrl(key)}
+                  <PhotoImg
+                    photoKey={key}
+                    variant="thumb"
                     alt={`Photo ${i + 1} de ${profile.nickname}`}
                     className="h-full w-full object-cover transition-transform hover:scale-105"
                   />
@@ -297,7 +303,7 @@ export function ProfileDetailPanel({
 
   const photoLightbox = profile.photo_keys && profile.photo_keys.length > 0 && (
     <PhotoLightbox
-      photos={profile.photo_keys.map((key) => photoUrl(key))}
+      photos={photoKeys.map((_, i) => displayUrls[i] ?? thumbUrls[i] ?? "")}
       index={lightboxIndex ?? 0}
       onIndexChange={setLightboxIndex}
       open={lightboxIndex !== null}

@@ -12,7 +12,7 @@ import { usePresenceStatus } from "~/lib/realtime/usePresence";
 import { useIgnoreProfile, useIsIgnored, useUnignoreProfile } from "~/lib/queries/useIgnoreActions";
 import { useHasPhotoAccessGrant, useSetPhotoAccess } from "~/lib/queries/usePhotoAccess";
 import { ReportForm } from "~/components/discovery/ReportForm";
-import { photoUrl } from "~/lib/queries/usePhotos";
+import { usePhotoUrl } from "~/lib/photo-urls";
 import { cn } from "~/lib/cn";
 import { Avatar, Divider, EmptyState, Skeleton } from "~/components/ui/primitives";
 import { IconButton } from "~/components/ui/button";
@@ -52,6 +52,7 @@ export default function ChatWithProfile() {
   const { data: myProfile } = useMyProfile();
   const { data: otherProfile } = useProfileDetail(otherProfileId);
   const presence = usePresenceStatus(otherProfile?.last_seen_at);
+  const otherPhoto = usePhotoUrl(otherProfile?.photo_keys?.[0], "thumb");
   const isIgnored = useIsIgnored(otherProfileId);
   const ignoreProfile = useIgnoreProfile();
   const unignoreProfile = useUnignoreProfile();
@@ -216,7 +217,7 @@ export default function ChatWithProfile() {
           className="flex min-w-0 flex-1 items-center gap-3 rounded-xl xl:pointer-events-none"
         >
           <Avatar
-            src={otherProfile?.photo_keys?.[0] ? photoUrl(otherProfile.photo_keys[0]) : null}
+            src={otherPhoto ?? null}
             name={otherProfile?.nickname ?? "?"}
             size="md"
             presence={presence}

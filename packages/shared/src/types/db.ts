@@ -555,7 +555,7 @@ export type Database = {
           moderation_status: string
           position: number
           profile_id: string
-          uploadthing_key: string
+          storage_key: string
           visibility: string
         }
         Insert: {
@@ -566,7 +566,7 @@ export type Database = {
           moderation_status?: string
           position?: number
           profile_id: string
-          uploadthing_key: string
+          storage_key: string
           visibility?: string
         }
         Update: {
@@ -577,7 +577,7 @@ export type Database = {
           moderation_status?: string
           position?: number
           profile_id?: string
-          uploadthing_key?: string
+          storage_key?: string
           visibility?: string
         }
         Relationships: [
@@ -958,6 +958,10 @@ export type Database = {
           subscription_status: string
           total_count: number
         }[]
+      }
+      can_read_photo_object: {
+        Args: { p_object_name: string }
+        Returns: boolean
       }
       can_view_private_photos: {
         Args: { p_owner_profile_id: string; p_viewer_profile_id: string }

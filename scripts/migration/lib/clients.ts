@@ -2,7 +2,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { config } from "dotenv";
 import { createClient } from "@supabase/supabase-js";
-import { UTApi } from "uploadthing/server";
 import type { Database } from "@rencontre/shared";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -29,5 +28,3 @@ export const rencontre = createClient<Database>(
   requireEnv("RENCONTRE_SUPABASE_SECRET_KEY"),
   { auth: { autoRefreshToken: false, persistSession: false } }
 );
-
-export const utapi = new UTApi({ token: requireEnv("RENCONTRE_UPLOADTHING_TOKEN") });

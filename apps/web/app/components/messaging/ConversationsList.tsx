@@ -6,7 +6,7 @@ import { useConversations, type Conversation } from "~/lib/queries/useConversati
 import { useMyProfile } from "~/lib/queries/useMyProfile";
 import { useInboxSubscription } from "~/lib/realtime/useInboxSubscription";
 import { usePresenceStatus } from "~/lib/realtime/usePresence";
-import { photoUrl } from "~/lib/queries/usePhotos";
+import { usePhotoUrl } from "~/lib/photo-urls";
 import { cn } from "~/lib/cn";
 import { Avatar, EmptyState, Skeleton } from "~/components/ui/primitives";
 import { ButtonLink } from "~/components/ui/button";
@@ -98,6 +98,7 @@ function ConversationRow({
 }) {
   const unread = Number(c.unread_count ?? 0);
   const presence = usePresenceStatus(c.other_last_seen_at);
+  const photo = usePhotoUrl(c.other_photo_key, "thumb");
 
   return (
     <li className="relative">
@@ -113,7 +114,7 @@ function ConversationRow({
         )}
       >
         <Avatar
-          src={c.other_photo_key ? photoUrl(c.other_photo_key) : null}
+          src={photo ?? null}
           name={c.other_nickname ?? "?"}
           size="lg"
           presence={presence}

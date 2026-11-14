@@ -1,11 +1,9 @@
 import type { User } from "@supabase/supabase-js";
 import { supabaseAdmin } from "./supabase-admin.js";
 
-// Shared by the Fastify auth plugin (preHandler) and the UploadThing file
-// router's .middleware() — the latter doesn't run through Fastify's
-// preHandler chain, so it needs its own way to verify the caller's JWT
-// against Supabase Auth using the same rule: never trust a client-claimed
-// identity, always re-derive it from the token server-side.
+// Verifies a bearer token against Supabase Auth: never trust a client-claimed
+// identity, always re-derive it from the token server-side. Used by the auth
+// plugin's preHandler.
 export async function verifyBearerToken(
   authHeader: string | undefined
 ): Promise<{ user: User; token: string } | null> {

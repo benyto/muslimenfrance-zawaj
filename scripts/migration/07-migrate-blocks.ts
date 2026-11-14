@@ -1,3 +1,6 @@
+// The monolith's blocks become *ignores* here: the mutual `user_blocks` table
+// was retired in favour of the one-directional profile_ignores (the person who
+// blocked is now the one who ignores; see migration 20260808130000_retire_mutual_block).
 import { rencontre } from "./lib/clients.js";
 import { readOutput } from "./lib/io.js";
 
@@ -17,19 +20,18 @@ async function main() {
   }
 
   const { data, error } = await rencontre
-    .from("user_blocks")
+    .from("profile_ignores")
     .insert(
       blocks.map((b) => ({
         id: b.id,
-        blocker_profile_id: b.blocker_profile_id,
-        blocked_profile_id: b.blocked_profile_id,
-        reason: b.reason,
+        ignorer_profile_id: b.blocker_profile_id,
+        ignored_profile_id: b.blocked_profile_id,
         created_at: b.created_at,
       }))
     )
     .select("id");
   if (error) throw error;
-  console.log(`inserted ${data.length} blocks`);
+  console.log(`inserted ${data.length} ignores (from the monolith's blocks)`);
 }
 
 main().catch((err) => {

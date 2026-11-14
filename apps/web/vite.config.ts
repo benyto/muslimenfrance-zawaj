@@ -20,7 +20,6 @@ export default defineConfig({
       "@radix-ui/react-toast",
       "@supabase/supabase-js",
       "@tanstack/react-query",
-      "@uploadthing/react",
       "clsx",
       "date-fns",
       "date-fns/locale",

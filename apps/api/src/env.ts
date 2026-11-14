@@ -20,7 +20,6 @@ const envSchema = z.object({
   // Used as the base client key for request-scoped (RLS-respecting) calls.
   SUPABASE_PUBLISHABLE_KEY: z.string().min(1),
   SUPABASE_SECRET_KEY: z.string().min(1),
-  UPLOADTHING_TOKEN: z.string().min(1),
   STRIPE_SECRET_KEY: z.string().min(1),
   STRIPE_WEBHOOK_SECRET: z.string().min(1),
   // The SPA's own URL — used to build Stripe Checkout/Portal return links.

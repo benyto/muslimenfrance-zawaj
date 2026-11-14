@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useAdminPhotos, useModeratePhoto, type AdminPhotoRow } from "~/lib/queries/useAdmin";
-import { photoUrl } from "~/lib/queries/usePhotos";
+import { PhotoImg, usePhotoUrls } from "~/lib/photo-urls";
 import { PhotoLightbox } from "~/components/ui/lightbox";
 import { Badge, Chip, EmptyState, Skeleton } from "~/components/ui/primitives";
 import { Button } from "~/components/ui/button";
@@ -23,7 +23,12 @@ export default function AdminPhotos() {
   const { data: photos, isLoading } = useAdminPhotos(status);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
-  const photoUrls = photos?.map((p) => photoUrl(p.uploadthing_key)) ?? [];
+  // Moderators see every photo; the full-size version is only requested once
+  // the lightbox is open, with the thumbnail standing in until it arrives.
+  const photoKeys = photos?.map((p) => p.storage_key) ?? [];
+  const thumbUrls = usePhotoUrls(photoKeys, "thumb");
+  const displayUrls = usePhotoUrls(photoKeys, "display", lightboxIndex !== null);
+  const photoUrls = photoKeys.map((_, i) => displayUrls[i] ?? thumbUrls[i] ?? "");
 
   return (
     <div>
@@ -75,7 +80,7 @@ function PhotoCard({ photo, onView }: { photo: AdminPhotoRow; onView: () => void
   return (
     <div className="overflow-hidden rounded-2xl border border-line">
       <button type="button" onClick={onView} className="block aspect-square w-full overflow-hidden bg-sunken">
-        <img src={photoUrl(photo.uploadthing_key)} alt="" className="h-full w-full object-cover" />
+        <PhotoImg photoKey={photo.storage_key} variant="thumb" alt="" className="h-full w-full object-cover" />
       </button>
       <div className="p-3">
         <div className="flex items-center justify-between gap-2">

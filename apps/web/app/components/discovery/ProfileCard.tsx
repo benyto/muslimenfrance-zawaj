@@ -1,7 +1,7 @@
 import { Link, useSearchParams } from "react-router";
 import { MapPin } from "lucide-react";
 import { relationshipGoalLabels } from "@rencontre/shared";
-import { photoUrl } from "~/lib/queries/usePhotos";
+import { PhotoImg } from "~/lib/photo-urls";
 import { StarMark } from "~/components/ui/star";
 
 export function ProfileCard({
@@ -32,8 +32,9 @@ export function ProfileCard({
     >
       <div className="relative aspect-[4/5] w-full overflow-hidden bg-primary-soft">
         {primaryPhotoKey ? (
-          <img
-            src={photoUrl(primaryPhotoKey)}
+          <PhotoImg
+            photoKey={primaryPhotoKey}
+            variant="thumb"
             alt={`Photo de ${nickname}`}
             loading="lazy"
             className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.04]"
