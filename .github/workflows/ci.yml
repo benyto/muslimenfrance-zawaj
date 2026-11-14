@@ -79,9 +79,14 @@ jobs:
 
       - name: Start the built API
         run: |
+          # Names only, never values — shows what this CLI version calls things.
+          echo "status variables: $(supabase status -o env | cut -d= -f1 | tr '\n' ' ')"
           set -a
           eval "$(supabase status -o env)"
           set +a
+          for v in "$API_URL" "${ANON_KEY:-$PUBLISHABLE_KEY}" "${SERVICE_ROLE_KEY:-$SECRET_KEY}"; do
+            [ -n "$v" ] || { echo "a Supabase URL/key variable is missing (see names above)"; exit 1; }
+          done
           {
             echo "TEST_SUPABASE_URL=${API_URL}"
             echo "TEST_SUPABASE_ANON_KEY=${ANON_KEY:-$PUBLISHABLE_KEY}"
@@ -110,6 +115,8 @@ jobs:
           TEST_STRIPE_WEBHOOK_SECRET: whsec_ci_tests
         run: npm test -w @rencontre/api
 
-      - name: API log
+      - name: Diagnostics
         if: failure()
-        run: tail -n 200 api.log
+        run: |
+          echo "--- API log"; tail -n 200 api.log 2>/dev/null || echo "(the API was never started — an earlier step failed)"
+          echo "--- containers"; docker ps -a --format '{{.Names}}  {{.Status}}' || true
