@@ -63,12 +63,109 @@ async function upsertSubscriptionFromStripe(subscription: Stripe.Subscription) {
     { onConflict: "stripe_subscription_id" },
   );
 
-  if (error) {
-    console.error(
-      "Failed to upsert user_subscriptions from Stripe webhook",
-      error,
-    );
+  // Throw rather than log: the caller is a webhook handler, and swallowing
+  // this would tell Stripe the event was handled when the subscription was
+  // never written. A thrown error makes the delivery fail and be retried.
+  if (error) throw error;
+}
+
+// The state of a subscription *now*, not as it was when the event fired.
+// Stripe doesn't guarantee delivery order, so projecting an event's own
+// snapshot lets a late "updated" overwrite a newer "canceled". Reading the
+// current object makes every event converge on the same result whatever order
+// they arrive in. (If Stripe no longer has it, the snapshot is all there is.)
+async function currentSubscription(snapshot: Stripe.Subscription) {
+  try {
+    return await stripe.subscriptions.retrieve(snapshot.id);
+  } catch (err) {
+    if ((err as { code?: string }).code === "resource_missing") return snapshot;
+    throw err;
   }
+}
+
+type DeferredEmail = () => Promise<unknown>;
+
+// Does the event's real work. Anything that goes wrong throws, so the caller
+// can leave the event 'failed' and ask Stripe to redeliver it. Emails are not
+// sent here: they are returned and sent only after the event has been marked
+// processed, so a retry after a failed projection can't email twice, and a
+// slow or failing mail provider can't fail the webhook.
+async function processStripeEvent(event: Stripe.Event): Promise<DeferredEmail[]> {
+  const emails: DeferredEmail[] = [];
+  const emailTo = (userId: string | undefined, build: (who: { nickname: string; email: string }) => { subject: string; html: string }) => {
+    if (!userId) return;
+    emails.push(async () => {
+      const who = await getNicknameAndEmail(userId);
+      if (who) await sendEmail(who.email, build(who));
+    });
+  };
+
+  switch (event.type) {
+    case "checkout.session.completed": {
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (session.subscription) {
+        const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
+        await upsertSubscriptionFromStripe(subscription);
+        const trialEnd = subscription.trial_end
+          ? new Date(subscription.trial_end * 1000).toISOString()
+          : null;
+        emailTo(subscription.metadata.user_id, (who) =>
+          subscriptionStartedEmail({ nickname: who.nickname, trialEnd }),
+        );
+      }
+      break;
+    }
+    case "customer.subscription.updated": {
+      await upsertSubscriptionFromStripe(
+        await currentSubscription(event.data.object as Stripe.Subscription),
+      );
+      break;
+    }
+    case "customer.subscription.deleted": {
+      const subscription = await currentSubscription(event.data.object as Stripe.Subscription);
+      await upsertSubscriptionFromStripe(subscription);
+      emailTo(subscription.metadata.user_id, (who) =>
+        subscriptionCanceledEmail({ nickname: who.nickname }),
+      );
+      break;
+    }
+    case "customer.subscription.trial_will_end": {
+      // Stripe fires this ~3 days before trial end automatically, no cron
+      // needed on our side.
+      const subscription = event.data.object as Stripe.Subscription;
+      if (subscription.trial_end) {
+        const trialEnd = new Date(subscription.trial_end * 1000).toISOString();
+        emailTo(subscription.metadata.user_id, (who) =>
+          trialEndingSoonEmail({ nickname: who.nickname, trialEnd }),
+        );
+      }
+      break;
+    }
+    case "invoice.payment_succeeded":
+    case "invoice.payment_failed": {
+      const invoice = event.data.object as Stripe.Invoice;
+      // current_period_start/end moved onto subscription items and
+      // invoice's subscription reference moved under `parent` in a
+      // recent Stripe API revision — no longer a top-level field.
+      const subscriptionRef = invoice.parent?.subscription_details?.subscription;
+      const subscriptionId =
+        typeof subscriptionRef === "string" ? subscriptionRef : subscriptionRef?.id;
+      if (subscriptionId) {
+        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        await upsertSubscriptionFromStripe(subscription);
+        if (event.type === "invoice.payment_failed") {
+          emailTo(subscription.metadata.user_id, (who) =>
+            paymentFailedEmail({ nickname: who.nickname }),
+          );
+        }
+      }
+      break;
+    }
+    default:
+      break;
+  }
+
+  return emails;
 }
 
 // Checkout + portal — normal JSON bodies, both require a real session.
@@ -219,107 +316,53 @@ export async function stripeWebhookRoutes(fastify: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid signature" });
     }
 
-    // Idempotency: Stripe retries aggressively on anything but a fast 2xx.
-    // Insert first; a unique-violation means we've already processed this
-    // event, so ack without re-running side effects.
-    const { error: dedupeError } = await supabaseAdmin
-      .from("webhook_events")
-      .insert({ id: event.id, type: event.type });
-    if (dedupeError) {
+    // Take the event for processing. Only a duplicate of something already
+    // *processed* is acknowledged as such; a database error is not a
+    // duplicate and must not be answered with a 200, or the event is lost.
+    const { data: claim, error: claimError } = await supabaseAdmin.rpc("claim_webhook_event", {
+      p_id: event.id,
+      p_type: event.type,
+    });
+    if (claimError || !claim) {
+      request.log.error(claimError, "Failed to record Stripe webhook event");
+      return reply.code(500).send({ error: "Could not record event, will retry" });
+    }
+    if (claim === "duplicate") {
       return reply.code(200).send({ received: true, deduped: true });
     }
+    if (claim === "in_progress") {
+      // Another delivery is working on it. Not a 2xx: if that one dies, this
+      // redelivery is what picks it back up.
+      return reply.code(409).send({ error: "Event is being processed" });
+    }
 
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        if (session.subscription) {
-          const subscription = await stripe.subscriptions.retrieve(
-            session.subscription as string,
-          );
-          await upsertSubscriptionFromStripe(subscription);
+    let emails: DeferredEmail[];
+    try {
+      emails = await processStripeEvent(event);
+    } catch (err) {
+      request.log.error(err, "Stripe webhook processing failed");
+      await supabaseAdmin
+        .from("webhook_events")
+        .update({ status: "failed", last_error: String((err as Error).message ?? err).slice(0, 500) })
+        .eq("id", event.id);
+      return reply.code(500).send({ error: "Processing failed, will retry" });
+    }
 
-          const userId = subscription.metadata.user_id;
-          const who = userId ? await getNicknameAndEmail(userId) : null;
-          if (who) {
-            const trialEnd = subscription.trial_end
-              ? new Date(subscription.trial_end * 1000).toISOString()
-              : null;
-            const { subject, html } = subscriptionStartedEmail({
-              nickname: who.nickname,
-              trialEnd,
-            });
-            await sendEmail(who.email, { subject, html });
-          }
-        }
-        break;
-      }
-      case "customer.subscription.updated": {
-        await upsertSubscriptionFromStripe(
-          event.data.object as Stripe.Subscription,
-        );
-        break;
-      }
-      case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
-        await upsertSubscriptionFromStripe(subscription);
+    const { error: markError } = await supabaseAdmin
+      .from("webhook_events")
+      .update({ status: "processed", processed_at: new Date().toISOString(), last_error: null })
+      .eq("id", event.id);
+    if (markError) {
+      // The work is done and re-running it is harmless (projections are
+      // idempotent), so still acknowledge — a stale 'processing' row is
+      // taken over by the next delivery, not lost.
+      request.log.error(markError, "Failed to mark Stripe webhook event processed");
+    }
 
-        const userId = subscription.metadata.user_id;
-        const who = userId ? await getNicknameAndEmail(userId) : null;
-        if (who) {
-          const { subject, html } = subscriptionCanceledEmail({
-            nickname: who.nickname,
-          });
-          await sendEmail(who.email, { subject, html });
-        }
-        break;
-      }
-      case "customer.subscription.trial_will_end": {
-        // Stripe fires this ~3 days before trial end automatically, no
-        // cron needed on our side.
-        const subscription = event.data.object as Stripe.Subscription;
-        const userId = subscription.metadata.user_id;
-        const who = userId ? await getNicknameAndEmail(userId) : null;
-        if (who && subscription.trial_end) {
-          const { subject, html } = trialEndingSoonEmail({
-            nickname: who.nickname,
-            trialEnd: new Date(subscription.trial_end * 1000).toISOString(),
-          });
-          await sendEmail(who.email, { subject, html });
-        }
-        break;
-      }
-      case "invoice.payment_succeeded":
-      case "invoice.payment_failed": {
-        const invoice = event.data.object as Stripe.Invoice;
-        // current_period_start/end moved onto subscription items and
-        // invoice's subscription reference moved under `parent` in a
-        // recent Stripe API revision — no longer a top-level field.
-        const subscriptionRef =
-          invoice.parent?.subscription_details?.subscription;
-        const subscriptionId =
-          typeof subscriptionRef === "string"
-            ? subscriptionRef
-            : subscriptionRef?.id;
-        if (subscriptionId) {
-          const subscription =
-            await stripe.subscriptions.retrieve(subscriptionId);
-          await upsertSubscriptionFromStripe(subscription);
-
-          if (event.type === "invoice.payment_failed") {
-            const userId = subscription.metadata.user_id;
-            const who = userId ? await getNicknameAndEmail(userId) : null;
-            if (who) {
-              const { subject, html } = paymentFailedEmail({
-                nickname: who.nickname,
-              });
-              await sendEmail(who.email, { subject, html });
-            }
-          }
-        }
-        break;
-      }
-      default:
-        break;
+    // After the event is safely recorded as processed, and without holding up
+    // the response: a mail problem must never fail or repeat a webhook.
+    for (const send of emails) {
+      void send().catch((err) => request.log.error(err, "Stripe webhook email failed"));
     }
 
     return { received: true };

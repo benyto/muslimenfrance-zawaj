@@ -917,18 +917,33 @@ export type Database = {
       }
       webhook_events: {
         Row: {
+          attempts: number
           id: string
-          processed_at: string
+          last_error: string | null
+          processed_at: string | null
+          processing_started_at: string | null
+          received_at: string
+          status: string
           type: string
         }
         Insert: {
+          attempts?: number
           id: string
-          processed_at?: string
+          last_error?: string | null
+          processed_at?: string | null
+          processing_started_at?: string | null
+          received_at?: string
+          status?: string
           type: string
         }
         Update: {
+          attempts?: number
           id?: string
-          processed_at?: string
+          last_error?: string | null
+          processed_at?: string | null
+          processing_started_at?: string | null
+          received_at?: string
+          status?: string
           type?: string
         }
         Relationships: []
@@ -974,6 +989,10 @@ export type Database = {
           p_recipient_profile_id: string
         }
         Returns: boolean
+      }
+      claim_webhook_event: {
+        Args: { p_id: string; p_stale_seconds?: number; p_type: string }
+        Returns: string
       }
       get_my_conversations: {
         Args: never

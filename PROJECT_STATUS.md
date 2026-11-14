@@ -225,6 +225,24 @@ just unreferenced. `UPLOADTHING_TOKEN` (apps/api/.env) and
 `VITE_UPLOADTHING_APP_ID` (apps/web/.env.local) are no longer read by the app and
 can be removed, as can `RENCONTRE_UPLOADTHING_TOKEN` in `scripts/migration/.env.local`.
 
+### Stripe webhook reliability (done)
+
+`webhook_events` is now a durable inbox with a state (`processing` /
+`processed` / `failed`, attempts, last error). `claim_webhook_event()` takes
+an event atomically; the handler answers **200** only for a genuine duplicate
+of something already *processed*, **409** if another delivery is working on it,
+and **5xx** whenever recording or processing failed — so Stripe redelivers
+instead of the event being lost. A failed event is re-claimed by its
+redelivery (same id), and a dead attempt (`processing` for >5 min) is taken
+over. Subscription events project the subscription's **current** state from
+Stripe rather than the event's snapshot, so out-of-order delivery can't
+resurrect a canceled subscription. Emails are sent only after the event is
+marked processed, and never fail the webhook. Migration
+`20261115090000_webhook_event_state.sql`. Not covered: two *different*
+events for one subscription processed at the exact same instant (both read
+current state, so they converge); a retention job to prune old
+`webhook_events` rows.
+
 ### Reliability fixes (done)
 
 - **API is deployable**: `npm run build -w apps/api` now bundles to a single
