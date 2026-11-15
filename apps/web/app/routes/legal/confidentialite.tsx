@@ -36,7 +36,7 @@ export default function Privacy() {
             ["Photos", "Les photos que vous ajoutez, leur visibilité (publique ou privée) et les autorisations d’accès que vous accordez."],
             ["Échanges", "Vos messages, vos favoris, les profils que vous ignorez, vos demandes d’accès à des photos privées, vos signalements."],
             ["Présence", "Votre dernière connexion, affichée aux autres uniquement si vous avez activé le statut en ligne."],
-            ["Abonnement", "Identifiants client et abonnement Stripe, statut et dates de l’abonnement. Votre carte bancaire est saisie chez Stripe ; nous n’y avons pas accès."],
+            ["Abonnement", "Identifiants client et abonnement Stripe, statut et dates de l’abonnement, et la preuve de votre accord au moment de la souscription (date, version des conditions et du texte affiché). Votre carte bancaire est saisie chez Stripe ; nous n’y avons pas accès."],
             ["Modération et sécurité", "Décisions de modération et leurs motifs, signalements, journal des actions de l’équipe (qui a pris quelle décision, quand, sans reprendre le contenu de votre profil), journaux techniques de nos prestataires (dont l’adresse IP)."],
           ]}
         />

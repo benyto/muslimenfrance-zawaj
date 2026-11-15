@@ -802,6 +802,50 @@ export type Database = {
         }
         Relationships: []
       }
+      subscription_consents: {
+        Row: {
+          accepted_terms: boolean
+          created_at: string
+          id: string
+          stripe_checkout_session_id: string
+          subscription_product_id: string | null
+          terms_version: string
+          user_id: string
+          waived_withdrawal: boolean
+          wording_version: string
+        }
+        Insert: {
+          accepted_terms: boolean
+          created_at?: string
+          id?: string
+          stripe_checkout_session_id: string
+          subscription_product_id?: string | null
+          terms_version: string
+          user_id: string
+          waived_withdrawal: boolean
+          wording_version: string
+        }
+        Update: {
+          accepted_terms?: boolean
+          created_at?: string
+          id?: string
+          stripe_checkout_session_id?: string
+          subscription_product_id?: string | null
+          terms_version?: string
+          user_id?: string
+          waived_withdrawal?: boolean
+          wording_version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_consents_subscription_product_id_fkey"
+            columns: ["subscription_product_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscription_products: {
         Row: {
           audience: string

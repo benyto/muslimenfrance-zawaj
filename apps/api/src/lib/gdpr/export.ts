@@ -21,6 +21,8 @@ const FAVORITE_COLUMNS = "id, favorited_profile_id, created_at";
 const IGNORE_COLUMNS = "id, ignored_profile_id, created_at";
 const PHOTO_ACCESS_COLUMNS = "id, owner_profile_id, viewer_profile_id, status, created_at, updated_at";
 const REPORT_COLUMNS = "id, content_type, content_id, reason, description, status, created_at";
+const CONSENT_COLUMNS =
+  "id, stripe_checkout_session_id, terms_version, wording_version, accepted_terms, waived_withdrawal, created_at";
 const SUBSCRIPTION_COLUMNS =
   "id, status, stripe_subscription_id, stripe_customer_id, trial_start, trial_end, current_period_start, current_period_end, cancel_at_period_end, created_at";
 
@@ -37,7 +39,7 @@ export async function buildAccountExport(userId: string, email: string | undefin
     .maybeSingle();
   if (profileError) throw new Error(`read failed: ${profileError.message}`);
 
-  const [reports, subscriptions] = await Promise.all([
+  const [reports, subscriptions, subscriptionConsents] = await Promise.all([
     fetchAll((from, to) =>
       supabaseAdmin
         .from("reports")
@@ -56,9 +58,18 @@ export async function buildAccountExport(userId: string, email: string | undefin
         .order("id")
         .range(from, to)
     ),
+    fetchAll((from, to) =>
+      supabaseAdmin
+        .from("subscription_consents")
+        .select(CONSENT_COLUMNS, { count: "exact" })
+        .eq("user_id", userId)
+        .order("created_at")
+        .order("id")
+        .range(from, to)
+    ),
   ]);
 
-  const base = { exportedAt: new Date().toISOString(), account: { id: userId, email }, reports, subscriptions };
+  const base = { exportedAt: new Date().toISOString(), account: { id: userId, email }, reports, subscriptions, subscriptionConsents };
 
   // No profile yet: nothing else exists to export.
   if (!profile) {

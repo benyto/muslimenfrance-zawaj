@@ -45,8 +45,13 @@ export function useMySubscription() {
 
 export function useStartCheckout() {
   return useMutation({
+    // The API refuses unless both are true; the dialog only calls this after
+    // the member has ticked both boxes.
     mutationFn: async () =>
-      apiFetch("/stripe/checkout", { method: "POST", body: "{}" }) as Promise<{ url: string }>,
+      apiFetch("/stripe/checkout", {
+        method: "POST",
+        body: JSON.stringify({ acceptTerms: true, waiveWithdrawal: true }),
+      }) as Promise<{ url: string }>,
     onSuccess: (data) => {
       if (data.url) window.location.href = data.url;
     },

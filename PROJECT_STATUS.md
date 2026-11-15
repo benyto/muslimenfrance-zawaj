@@ -342,20 +342,49 @@ build: check each page before launch.
    **origin ethnique** (`ethnicity`), which is also special-category data
    (GDPR art. 9). Update the label and re-collect consent from existing
    members.
-2. **Checkout** shows no acceptance of the terms and no withdrawal-right
-   wording. For consumers in France, a paid subscription needs the 14-day
-   withdrawal information and, if service starts immediately, the member's
-   express request/waiver (Stripe `consent_collection` / `custom_text`).
-3. **Moderators can read every conversation** (RLS "admin select"). The
+2. **Moderators can read every conversation** (RLS "admin select"). The
    policy discloses it, limited to reports and security; decide whether to
    restrict it to reported conversations in practice or in the database.
-4. **Inactive accounts** are never purged and no retention period is defined;
+3. **Inactive accounts** are never purged and no retention period is defined;
    neither is the audit-log, reports-about-a-member or backup retention. The
    policy has placeholders. (Reports filed *about* someone are deliberately
    kept after their account is deleted, for safety and legal claims, and the
    policy says so — decide how long.)
-5. New-message e-mails are **on by default** (opt-out), so the policy bases
+4. New-message e-mails are **on by default** (opt-out), so the policy bases
    them on legitimate interest rather than consent.
+
+### Checkout consent (done — migration needs applying)
+
+Subscribing now needs two **separate, unticked** choices, made in a dialog in
+the app before the redirect to Stripe: acceptance of the terms/privacy policy,
+and the member's express request that the subscription start immediately, with
+the acknowledgement that if they withdraw within 14 days they pay for what has
+been provided (French consumer law, art. L221-25 *Code de la consommation*).
+Stripe's own page supports only one terms checkbox and needs a URL set in the
+Stripe dashboard, so this is done in the app, under our control.
+
+- **Enforced by the API**: `POST /stripe/checkout` refuses (400) unless
+  `acceptTerms` and `waiveWithdrawal` are both literally `true`
+  (`checkoutConsentSchema` in `packages/shared`), before Stripe is contacted.
+- **Proof is kept**: once Stripe has created the session, a row is written to
+  `subscription_consents` (session id, `TERMS_VERSION`, `CHECKOUT_WORDING_VERSION`,
+  both flags; migration `20261117090000_subscription_consents.sql`). If it can't
+  be written the member gets no payment link and the session is expired. The
+  table is server-only, is included in the member's data export, and is removed
+  with their account.
+- Stripe also shows the same notice (withdrawal, auto-renewal, how to cancel)
+  next to the pay button, in French (`CHECKOUT_NOTICE`, `custom_text.submit`).
+- **Versions**: bump `TERMS_VERSION` when the terms/privacy policy change
+  materially (it also drives the "Dernière mise à jour" on the legal pages) and
+  `CHECKOUT_WORDING_VERSION` when the checkboxes or the notice change. The
+  wording lives in three places that must agree: the dialog
+  (`components/settings/CheckoutConsentDialog.tsx`), `CHECKOUT_NOTICE`
+  (`routes/stripe.ts`) and CGU article 9.
+- **Deploy order**: apply the migration *before* the new API — checkout writes
+  to the new table. Not exercised end to end: creating a real Checkout session
+  needs a Stripe account with a priced product, which this project doesn't have
+  enabled yet; run one test-mode checkout before charging anyone.
+- Tests: `test/checkout-consent.test.ts`. The wording is a draft for legal review.
 
 ### Audit log holds no personal data (done — migration needs applying)
 

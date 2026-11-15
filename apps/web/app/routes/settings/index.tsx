@@ -17,6 +17,7 @@ import { supabase } from "~/lib/supabase-client";
 import { useTheme, type ThemePreference } from "~/lib/theme";
 import { Card, Badge, Chip, Skeleton } from "~/components/ui/primitives";
 import { LegalLinks } from "~/components/legal/legal";
+import { CheckoutConsentDialog } from "~/components/settings/CheckoutConsentDialog";
 import { Button } from "~/components/ui/button";
 import { Checkbox, Field, Select } from "~/components/ui/form";
 import { ConfirmDialog } from "~/components/ui/sheet";
@@ -83,6 +84,7 @@ function SubscriptionSection() {
   const { data: subscription, isLoading: subLoading } = useMySubscription();
   const startCheckout = useStartCheckout();
   const openPortal = useOpenBillingPortal();
+  const [showCheckoutConsent, setShowCheckoutConsent] = useState(false);
 
   if (productLoading || subLoading) {
     return (
@@ -136,12 +138,17 @@ function SubscriptionSection() {
             {product.interval === "month" ? "mois" : product.interval}
             {product.trial_period_days > 0 && ` — ${product.trial_period_days} jours d'essai gratuit`}
           </p>
-          {startCheckout.isError && (
-            <p className="mb-2 text-sm text-danger">{(startCheckout.error as Error).message}</p>
-          )}
-          <Button onClick={() => startCheckout.mutate()} loading={startCheckout.isPending}>
-            {startCheckout.isPending ? "Redirection..." : "S'abonner"}
-          </Button>
+          <Button onClick={() => setShowCheckoutConsent(true)}>S&apos;abonner</Button>
+          <CheckoutConsentDialog
+            open={showCheckoutConsent}
+            onOpenChange={setShowCheckoutConsent}
+            priceSummary={`${((product.price_amount ?? 0) / 100).toFixed(2)} ${product.currency.toUpperCase()} / ${
+              product.interval === "month" ? "mois" : product.interval
+            }${product.trial_period_days > 0 ? `, après ${product.trial_period_days} jours d'essai gratuit` : ""}`}
+            loading={startCheckout.isPending}
+            errorMessage={startCheckout.isError ? (startCheckout.error as Error).message : null}
+            onConfirm={() => startCheckout.mutate()}
+          />
         </div>
       )}
 

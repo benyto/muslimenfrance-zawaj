@@ -145,9 +145,12 @@ export default function Terms() {
         </UL>
         <P>
           <strong>Droit de rétractation.</strong> Si vous êtes consommateur, vous disposez de 14 jours à compter de la
-          souscription pour vous rétracter, sans avoir à vous justifier. Si vous demandez expressément que l’abonnement
-          commence avant la fin de ce délai, vous devrez payer un montant proportionnel au service déjà fourni jusqu’à
-          votre demande de rétractation. Pour vous rétracter, écrivez-nous (voir « Contact »).
+          souscription pour vous rétracter, sans avoir à vous justifier. Avant de payer, il vous est demandé de
+          cocher deux cases distinctes : l’acceptation de ces conditions, et votre demande expresse que l’abonnement
+          commence immédiatement, avant la fin de ce délai. Dans ce cas, si vous vous rétractez, vous paierez un
+          montant proportionnel au service déjà fourni jusqu’à votre demande. Si vous ne cochez pas ces cases, vous
+          ne pouvez pas souscrire. Pour vous rétracter, écrivez-nous (voir « Contact »). Nous conservons la preuve de
+          votre accord (date, version des textes affichés).
         </P>
       </Section>
 

@@ -8,9 +8,19 @@
 //
 // The texts around them are a working draft written from what the app actually
 // does — a lawyer should review them before they are relied on.
+import { TERMS_VERSION } from "@rencontre/shared";
+
 export const legal = {
-  /** Shown at the top of each page. Update when the text changes materially. */
-  lastUpdated: "15 novembre 2026",
+  /**
+   * Shown at the top of each page. Derived from TERMS_VERSION (packages/shared),
+   * which is also recorded with each subscription as proof of what was agreed —
+   * bump that constant when the terms or the privacy policy change materially.
+   */
+  lastUpdated: new Date(`${TERMS_VERSION}T12:00:00`).toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }),
 
   publisher: {
     /** Raison sociale (or full name for an individual). */

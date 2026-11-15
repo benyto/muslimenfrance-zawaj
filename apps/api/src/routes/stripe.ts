@@ -1,5 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import type Stripe from "stripe";
+import { CHECKOUT_WORDING_VERSION, TERMS_VERSION, checkoutConsentSchema } from "@rencontre/shared";
 import { env } from "../env.js";
 import { stripe } from "../lib/stripe.js";
 import { supabaseAdmin } from "../lib/supabase-admin.js";
@@ -168,6 +169,14 @@ async function processStripeEvent(event: Stripe.Event): Promise<DeferredEmail[]>
   return emails;
 }
 
+// Shown by Stripe next to the pay button, repeating what the member has just
+// ticked in the app. Part of the checkout wording: change it together with
+// CHECKOUT_WORDING_VERSION (packages/shared) and the checkboxes in the web app.
+const CHECKOUT_NOTICE =
+  "En confirmant, vous demandez que votre abonnement commence immédiatement. " +
+  "Vous disposez de 14 jours pour vous rétracter ; si vous vous rétractez, vous paierez le service fourni jusqu’à votre demande. " +
+  "L’abonnement se renouvelle automatiquement à chaque période jusqu’à sa résiliation, possible à tout moment depuis « Réglages ».";
+
 // Checkout + portal — normal JSON bodies, both require a real session.
 export async function stripeRoutes(fastify: FastifyInstance) {
   fastify.post(
@@ -179,6 +188,15 @@ export async function stripeRoutes(fastify: FastifyInstance) {
       ],
     },
     async (request, reply) => {
+      // Before anything else — in particular before Stripe is contacted: no
+      // checkout without both explicit choices (see checkoutConsentSchema).
+      const consent = checkoutConsentSchema.safeParse(request.body);
+      if (!consent.success) {
+        return reply.code(400).send({
+          error: consent.error.issues[0]?.message ?? "Consentement requis pour vous abonner",
+        });
+      }
+
       const db = request.supabase!;
 
       const { data: myProfile } = await db
@@ -246,9 +264,29 @@ export async function stripeRoutes(fastify: FastifyInstance) {
           user_id: request.user!.id,
           subscription_product_id: product.id,
         },
+        locale: "fr",
+        custom_text: { submit: { message: CHECKOUT_NOTICE } },
         success_url: `${env.SITE_URL}/settings?checkout=success`,
         cancel_url: `${env.SITE_URL}/settings?checkout=cancelled`,
       });
+
+      // The proof of consent. If it cannot be kept, the member does not get the
+      // payment link: better to ask them to retry than to take a subscription
+      // we cannot show they agreed to. (The unused session just expires.)
+      const { error: consentError } = await supabaseAdmin.from("subscription_consents").insert({
+        user_id: request.user!.id,
+        subscription_product_id: product.id,
+        stripe_checkout_session_id: session.id,
+        terms_version: TERMS_VERSION,
+        wording_version: CHECKOUT_WORDING_VERSION,
+        accepted_terms: true,
+        waived_withdrawal: true,
+      });
+      if (consentError) {
+        request.log.error(consentError, "Failed to record subscription consent");
+        await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
+        return reply.code(500).send({ error: "Impossible de démarrer l’abonnement pour le moment. Réessayez dans un instant." });
+      }
 
       return { url: session.url };
     },
