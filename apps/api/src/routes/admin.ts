@@ -79,6 +79,7 @@ async function insertAuditRow(row: {
     ip_address: row.ip ?? null,
   });
   if (error) console.error("Failed to write admin_audit_log", error);
+  return !error;
 }
 
 async function writeAuditLog(params: {
@@ -90,7 +91,10 @@ async function writeAuditLog(params: {
   after?: AuditState;
   ip?: string;
 }) {
-  await insertAuditRow(params);
+  // Most callers ignore the result: a moderation decision has already been made
+  // and must not fail because its log line could not be written. Reading a
+  // private conversation is the exception — it checks the result and refuses.
+  return insertAuditRow(params);
 }
 
 // Pricing configuration is business data, not personal data, so its full
@@ -250,6 +254,89 @@ export async function adminRoutes(fastify: FastifyInstance) {
       }
 
       return after;
+    },
+  );
+
+  // The one way a moderator reads a private conversation. See the migration
+  // 20261119090000_moderators_no_direct_message_access.sql for the rules.
+  fastify.get<{ Params: { id: string } }>(
+    "/admin/reports/:id/conversation",
+    { preHandler: adminPreHandler },
+    async (request, reply) => {
+      const { data: report } = await supabaseAdmin
+        .from("reports")
+        .select("id, content_type, content_id, status")
+        .eq("id", request.params.id)
+        .maybeSingle();
+      if (!report) return reply.code(404).send({ error: "Signalement introuvable" });
+      if (report.content_type !== "message") {
+        return reply.code(400).send({ error: "Ce signalement ne concerne pas un message" });
+      }
+      if (!["pending", "reviewed"].includes(report.status)) {
+        return reply
+          .code(409)
+          .send({ error: "Ce signalement est déjà traité : la conversation n’est plus consultable" });
+      }
+
+      const { data: reported } = await supabaseAdmin
+        .from("messages")
+        .select("id, conversation_id, sender_profile_id, recipient_profile_id, content, created_at")
+        .eq("id", report.content_id)
+        .maybeSingle();
+      if (!reported) return reply.code(404).send({ error: "Le message signalé n’existe plus" });
+
+      // A window around the reported message — enough to judge it in context,
+      // not the whole history. (created_at, id) is the same total order the
+      // members' own message history uses, so ties at a boundary stay in place.
+      const CONTEXT = 25;
+      const [older, newer] = await Promise.all([
+        supabaseAdmin
+          .from("messages")
+          .select("id, sender_profile_id, content, created_at")
+          .eq("conversation_id", reported.conversation_id)
+          .or(`created_at.lt.${reported.created_at},and(created_at.eq.${reported.created_at},id.lt.${reported.id})`)
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+          .limit(CONTEXT),
+        supabaseAdmin
+          .from("messages")
+          .select("id, sender_profile_id, content, created_at")
+          .eq("conversation_id", reported.conversation_id)
+          .or(`created_at.gt.${reported.created_at},and(created_at.eq.${reported.created_at},id.gt.${reported.id})`)
+          .order("created_at", { ascending: true })
+          .order("id", { ascending: true })
+          .limit(CONTEXT),
+      ]);
+      if (older.error || newer.error) {
+        request.log.error(older.error ?? newer.error, "Failed to read the reported conversation");
+        return reply.code(500).send({ error: "Impossible de charger la conversation" });
+      }
+
+      const { data: people } = await supabaseAdmin
+        .from("profiles")
+        .select("id, nickname")
+        .in("id", [reported.sender_profile_id, reported.recipient_profile_id]);
+
+      // Logged before anything is handed over; if it cannot be recorded, nothing
+      // is read. The entry says who looked at which report — not what was in it.
+      const logged = await writeAuditLog({
+        adminUserId: request.user!.id,
+        action: "conversation_viewed",
+        targetType: "report",
+        targetId: report.id,
+        ip: request.ip,
+      });
+      if (!logged) return reply.code(500).send({ error: "Consultation impossible pour le moment" });
+
+      return {
+        reportedMessageId: reported.id,
+        participants: Object.fromEntries((people ?? []).map((p) => [p.id, p.nickname])),
+        messages: [
+          ...(older.data ?? []).reverse(),
+          { id: reported.id, sender_profile_id: reported.sender_profile_id, content: reported.content, created_at: reported.created_at },
+          ...(newer.data ?? []),
+        ],
+      };
     },
   );
 

@@ -338,20 +338,64 @@ consumer mediator. Anything still `null` shows as a highlighted
 build: check each page before launch.
 
 **Before launch** (found while checking the text against the code):
-1. **Consent wording** (profile form) mentions religion and practice but not
-   **origin ethnique** (`ethnicity`), which is also special-category data
-   (GDPR art. 9). Update the label and re-collect consent from existing
-   members.
-2. **Moderators can read every conversation** (RLS "admin select"). The
-   policy discloses it, limited to reports and security; decide whether to
-   restrict it to reported conversations in practice or in the database.
-3. **Inactive accounts** are never purged and no retention period is defined;
+1. **Inactive accounts** are never purged and no retention period is defined;
    neither is the audit-log, reports-about-a-member or backup retention. The
    policy has placeholders. (Reports filed *about* someone are deliberately
    kept after their account is deleted, for safety and legal claims, and the
    policy says so — decide how long.)
-4. New-message e-mails are **on by default** (opt-out), so the policy bases
+2. New-message e-mails are **on by default** (opt-out), so the policy bases
    them on legitimate interest rather than consent.
+
+### Moderators can no longer browse conversations (done — migration needs applying)
+
+Two RLS policies used to give every moderator and admin SELECT on all
+conversations and messages. No screen used it — the reports page never showed a
+reported message, so a message report could not actually be assessed — but it
+left every private conversation readable and unlogged. Migration
+`20261119090000_moderators_no_direct_message_access.sql` drops both policies.
+
+The only path now is **`GET /admin/reports/:id/conversation`** (moderator/admin):
+- only for an **open** (`pending`/`reviewed`) report about a **message** — profile
+  reports and handled reports give no access (400 / 409);
+- returns a **window** (25 messages before, the reported one, 25 after), with the
+  two participants' nicknames — no emails or ids of accounts;
+- writes an audit entry `conversation_viewed` (target = the report) for every
+  view, with no content, and **returns nothing if that entry can't be written**.
+
+UI: "Voir la conversation" on open message reports (`ReportedConversationSheet`),
+fetched once per opening (never refetched, since each fetch is logged). Privacy
+policy (art. 5, 9) and terms (art. 7) describe this. Tests:
+`test/conversation-access.test.ts`.
+
+**Deploy order**: either order is safe, but until the migration is applied the old
+broad access still exists. The API route works regardless (service role).
+
+### Special-category consent now covers ethnicity (done — migration needs applying)
+
+The profile consent named religion and religious practice, but the profile also
+holds and shows **ethnicity**, which is special-category data too (GDPR art. 9).
+The wording (`SPECIAL_CATEGORY_CONSENT_TEXT`, `packages/shared/src/constants/consent.ts`)
+now names all three and says they are visible to other members. It is the single
+source for the profile form and the re-consent dialog.
+
+- **Recorded per member**: `profiles.special_category_consent_version`, written —
+  with the timestamp — only by the database function `record_special_category_consent`;
+  a trigger refuses direct changes to the version and date from the browser.
+  Migration `20261118090000_special_category_consent_version.sql`.
+- **Existing members**: they keep their data, but have no version, so their
+  **ethnicity is hidden from other members** (`get_profile_detail`) until they
+  accept the new wording or remove the field. Nothing is deleted. Religion and
+  practice stay visible — the old wording covered them.
+- **In the app**: a one-time dialog (`ConsentRenewalDialog`, in `AppShell`) for
+  members who hold an ethnicity but not the current consent: *J'accepte* /
+  *Retirer mon origine ethnique* / *Plus tard* (comes back next visit). The
+  profile form's box starts **unticked** for anyone who hasn't accepted the
+  current wording, so they must read and tick it to save.
+- **Changing the wording later**: bump `SPECIAL_CATEGORY_CONSENT_VERSION`, update
+  the date in the migration's `get_profile_detail` rule with a new migration, and
+  update the privacy policy's article 3.
+- Included in the data export. Tests: `test/special-category-consent.test.ts`.
+  The wording is a draft for legal review.
 
 ### Checkout consent (done — migration needs applying)
 

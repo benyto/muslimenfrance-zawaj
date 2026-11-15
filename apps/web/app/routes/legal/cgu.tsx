@@ -110,8 +110,9 @@ export default function Terms() {
           réception et il n’en est pas informé.
         </P>
         <P>
-          Dans le cadre du traitement d’un signalement ou pour assurer la sécurité du Service, les membres habilités de
-          l’équipe de modération peuvent consulter les conversations concernées.
+          Vos conversations ne sont pas accessibles à l’équipe de modération en temps normal. Lorsqu’un message est
+          signalé, les membres habilités de l’équipe peuvent consulter un extrait de la conversation autour de ce
+          message, uniquement tant que le signalement est en cours de traitement ; chaque consultation est enregistrée.
         </P>
       </Section>
 

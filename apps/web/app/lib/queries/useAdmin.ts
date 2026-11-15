@@ -219,6 +219,29 @@ export function useUpdateSubscriptionProduct() {
   });
 }
 
+export type ReportedConversation = {
+  reportedMessageId: string;
+  participants: Record<string, string>;
+  messages: { id: string; sender_profile_id: string; content: string; created_at: string }[];
+};
+
+// The only way a moderator reads a private conversation: the messages around a
+// message reported in an OPEN report. Every fetch is recorded in the audit log
+// server-side, so this is deliberately fetched once per opening and never
+// refetched on focus, reconnect or a timer.
+export function useReportedConversation(reportId: string | null) {
+  return useQuery({
+    queryKey: ["admin-report-conversation", reportId],
+    enabled: !!reportId,
+    staleTime: Infinity,
+    gcTime: 0,
+    retry: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    queryFn: () => apiFetch(`/admin/reports/${reportId}/conversation`) as Promise<ReportedConversation>,
+  });
+}
+
 export function useAdminAuditLog() {
   return useQuery({
     queryKey: ["admin-audit-log"],

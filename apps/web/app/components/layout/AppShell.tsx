@@ -10,6 +10,7 @@ import { useLastSeenHeartbeat } from "~/lib/realtime/usePresence";
 import { cn } from "~/lib/cn";
 import { StarMark } from "~/components/ui/star";
 import { IconButton } from "~/components/ui/button";
+import { ConsentRenewalDialog } from "~/components/profile/ConsentRenewalDialog";
 
 const navItems = [
   { to: "/discover", label: "Découvrir", icon: Compass },
@@ -124,6 +125,8 @@ export default function AppShell() {
       >
         <Outlet />
       </main>
+
+      <ConsentRenewalDialog />
 
       {!isChatOpen && (
         <nav

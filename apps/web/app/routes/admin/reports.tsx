@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Eye } from "lucide-react";
+import { Eye, MessageSquareText } from "lucide-react";
 import { useAdminReports, useResolveReport, type AdminReportRow } from "~/lib/queries/useAdmin";
 import { AdminProfileDetailSheet } from "~/components/admin/AdminProfileDetailSheet";
+import { ReportedConversationSheet } from "~/components/admin/ReportedConversationSheet";
 import { Badge, Card, Chip, EmptyState, Skeleton } from "~/components/ui/primitives";
 import { Button } from "~/components/ui/button";
 import { Field, Input } from "~/components/ui/form";
@@ -35,6 +36,7 @@ export default function AdminReports() {
   const [status, setStatus] = useState<(typeof statusFilters)[number]["value"]>("pending");
   const { data: reports, isLoading } = useAdminReports(status);
   const [viewProfileId, setViewProfileId] = useState<string | null>(null);
+  const [conversationReportId, setConversationReportId] = useState<string | null>(null);
 
   return (
     <div>
@@ -57,16 +59,33 @@ export default function AdminReports() {
           </Card>
         )}
         {reports?.map((report) => (
-          <ReportRow key={report.id} report={report} onViewProfile={() => setViewProfileId(report.content_id)} />
+          <ReportRow
+            key={report.id}
+            report={report}
+            onViewProfile={() => setViewProfileId(report.content_id)}
+            onViewConversation={() => setConversationReportId(report.id)}
+          />
         ))}
       </div>
 
       <AdminProfileDetailSheet profileId={viewProfileId} onOpenChange={(open) => !open && setViewProfileId(null)} />
+      <ReportedConversationSheet
+        reportId={conversationReportId}
+        onOpenChange={(open) => !open && setConversationReportId(null)}
+      />
     </div>
   );
 }
 
-function ReportRow({ report, onViewProfile }: { report: AdminReportRow; onViewProfile: () => void }) {
+function ReportRow({
+  report,
+  onViewProfile,
+  onViewConversation,
+}: {
+  report: AdminReportRow;
+  onViewProfile: () => void;
+  onViewConversation: () => void;
+}) {
   const [notes, setNotes] = useState("");
   const resolve = useResolveReport();
   const isActionable = report.status === "pending" || report.status === "reviewed";
@@ -94,6 +113,17 @@ function ReportRow({ report, onViewProfile }: { report: AdminReportRow; onViewPr
         >
           <Eye className="h-4 w-4" aria-hidden="true" />
           Voir le profil signalé
+        </button>
+      )}
+
+      {report.content_type === "message" && isActionable && (
+        <button
+          type="button"
+          onClick={onViewConversation}
+          className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+        >
+          <MessageSquareText className="h-4 w-4" aria-hidden="true" />
+          Voir la conversation
         </button>
       )}
 

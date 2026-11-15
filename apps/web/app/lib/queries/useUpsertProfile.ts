@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import type { ProfileInput } from "@rencontre/shared";
+import { SPECIAL_CATEGORY_CONSENT_VERSION, type ProfileInput } from "@rencontre/shared";
 import { supabase } from "~/lib/supabase-client";
 import { useSession } from "~/lib/auth/useSession";
 
@@ -22,7 +22,8 @@ function toRow(input: ProfileInput) {
     occupation: input.occupation ?? null,
     employment_status: input.employmentStatus ?? null,
     income_range: input.incomeRange ?? null,
-    ethnicity: input.ethnicity ?? null,
+    // An emptied field is "no value", not an empty string.
+    ethnicity: input.ethnicity?.trim() || null,
     religion: input.religion ?? null,
     religiosity_level: input.religiosityLevel ?? null,
     languages_spoken: input.languagesSpoken,
@@ -37,23 +38,21 @@ function toRow(input: ProfileInput) {
   };
 }
 
-// `isFirstConsent` controls whether special_category_consent_at gets
-// (re)stamped: only on the action that actually grants consent for the
-// first time, not on every subsequent edit of an already-consenting
-// profile — otherwise every save would misrepresent when consent was
-// originally given.
+// `recordConsent` is true when the member has just ticked the consent box
+// under the current wording and the profile doesn't already carry that version.
+// The date and version are written by the database function below, not sent
+// from here — the browser is not trusted to say when, or to what, someone agreed.
 export function useUpsertProfile() {
   const { session } = useSession();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ input, isFirstConsent }: { input: ProfileInput; isFirstConsent: boolean }) => {
+    mutationFn: async ({ input, recordConsent }: { input: ProfileInput; recordConsent: boolean }) => {
       if (!session) throw new Error("Not authenticated");
 
       const row = {
         user_id: session.user.id,
         ...toRow(input),
-        ...(isFirstConsent ? { special_category_consent_at: new Date().toISOString() } : {}),
       };
 
       const { data, error } = await supabase
@@ -63,6 +62,13 @@ export function useUpsertProfile() {
         .single();
 
       if (error) throw error;
+
+      if (recordConsent) {
+        const { error: consentError } = await supabase.rpc("record_special_category_consent", {
+          p_version: SPECIAL_CATEGORY_CONSENT_VERSION,
+        });
+        if (consentError) throw consentError;
+      }
 
       // Saved in a second step so an approved profile's edited text becomes a
       // pending change (the previous text stays visible until a moderator

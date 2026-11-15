@@ -31,7 +31,7 @@ export default function Privacy() {
             ],
             [
               "Données sensibles",
-              "Religion, niveau de pratique religieuse et origine ethnique, si vous les renseignez (voir l’article 3). Par nature, l’inscription à un service destiné à la communauté muslimenfrance peut aussi révéler vos convictions.",
+              "Religion, niveau de pratique religieuse et origine ethnique, si vous les renseignez, avec la date et la version de votre consentement (voir l’article 3). Par nature, l’inscription à un service destiné à la communauté muslimenfrance peut aussi révéler vos convictions.",
             ],
             ["Photos", "Les photos que vous ajoutez, leur visibilité (publique ou privée) et les autorisations d’accès que vous accordez."],
             ["Échanges", "Vos messages, vos favoris, les profils que vous ignorez, vos demandes d’accès à des photos privées, vos signalements."],
@@ -51,8 +51,13 @@ export default function Privacy() {
         <P>
           La religion, la pratique religieuse et l’origine ethnique sont des données particulièrement protégées par le
           RGPD (article 9). Nous ne les traitons qu’avec votre consentement explicite, que vous donnez en cochant la case
-          prévue dans la section « Confidentialité » de votre profil. Vous pouvez retirer ce consentement à tout moment
-          en supprimant votre compte ; le retrait n’affecte pas la légalité de ce qui a été fait avant.
+          prévue dans la section « Confidentialité » de votre profil. Cette case précise que ces informations, si vous
+          les renseignez, sont visibles des autres membres dont le profil est validé. Nous conservons la date de votre
+          consentement et la version du texte que vous avez accepté.
+        </P>
+        <P>
+          Vous pouvez retirer ce consentement à tout moment, en effaçant ces informations de votre profil ou en
+          supprimant votre compte ; le retrait n’affecte pas la légalité de ce qui a été fait avant.
         </P>
       </Section>
 
@@ -83,7 +88,9 @@ export default function Privacy() {
           </li>
           <li>
             <strong>L’équipe de modération</strong>, habilitée, pour vérifier les profils, photos et textes, et traiter
-            les signalements. Dans ce cadre, elle peut consulter les conversations concernées.
+            les signalements. Elle n’a pas accès à vos conversations en temps normal : elle ne peut ouvrir un extrait
+            d’une conversation que lorsqu’un message y est signalé et que le signalement est en cours de traitement, et
+            chaque consultation est enregistrée.
           </li>
           <li>
             <strong>Nos prestataires</strong> (sous-traitants), qui n’agissent que sur nos instructions :
@@ -204,7 +211,7 @@ export default function Privacy() {
             Les photos sont stockées dans un espace privé et ne s’affichent que par des liens temporaires, délivrés
             uniquement aux membres autorisés.
           </li>
-          <li>Les actions de l’équipe de modération sont journalisées.</li>
+          <li>Les actions de l’équipe de modération sont journalisées, y compris chaque consultation d’un extrait de conversation signalée.</li>
         </UL>
       </Section>
 

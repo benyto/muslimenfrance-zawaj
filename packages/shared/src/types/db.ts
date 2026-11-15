@@ -631,6 +631,7 @@ export type Database = {
           smoker: string | null
           special_category_consent: boolean
           special_category_consent_at: string | null
+          special_category_consent_version: string | null
           text_review_version: number
           updated_at: string
           user_id: string
@@ -677,6 +678,7 @@ export type Database = {
           smoker?: string | null
           special_category_consent?: boolean
           special_category_consent_at?: string | null
+          special_category_consent_version?: string | null
           text_review_version?: number
           updated_at?: string
           user_id: string
@@ -723,6 +725,7 @@ export type Database = {
           smoker?: string | null
           special_category_consent?: boolean
           special_category_consent_at?: string | null
+          special_category_consent_version?: string | null
           text_review_version?: number
           updated_at?: string
           user_id?: string
@@ -1145,6 +1148,10 @@ export type Database = {
         Args: { p_older_than_days: number }
         Returns: number
       }
+      record_special_category_consent: {
+        Args: { p_version: string }
+        Returns: undefined
+      }
       release_message_email_slot: {
         Args: { p_conversation_id: string; p_recipient_profile_id: string }
         Returns: undefined
@@ -1199,6 +1206,7 @@ export type Database = {
           smoker: string | null
           special_category_consent: boolean
           special_category_consent_at: string | null
+          special_category_consent_version: string | null
           text_review_version: number
           updated_at: string
           user_id: string

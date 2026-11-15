@@ -34,6 +34,11 @@ type MemberOptions = {
   /** Live (already approved) text, written directly as the service role. */
   bio?: string;
   lookingFor?: string;
+  /** Written directly as the service role, like the texts above. */
+  ethnicity?: string;
+  religion?: string;
+  /** Which consent wording they accepted; omitted = an older one (no version on record). */
+  consentVersion?: string;
 };
 
 /**
@@ -67,6 +72,9 @@ export async function createMember(options: MemberOptions = {}): Promise<Member>
       email_new_message_notifications: options.emailNotifications ?? false,
       bio: options.bio ?? null,
       looking_for: options.lookingFor ?? null,
+      ethnicity: options.ethnicity ?? null,
+      religion: options.religion ?? null,
+      special_category_consent_version: options.consentVersion ?? null,
     })
     .select("id")
     .single();

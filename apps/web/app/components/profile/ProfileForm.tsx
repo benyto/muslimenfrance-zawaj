@@ -5,6 +5,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   profileInputSchema,
   type ProfileInput,
+  hasCurrentSpecialCategoryConsent,
+  SPECIAL_CATEGORY_CONSENT_TEXT,
   genderOptions,
   genderLabels,
   eyeColorOptions,
@@ -97,7 +99,10 @@ export function ProfileForm({ completion }: { completion: number }) {
       occupation: profile.occupation ?? undefined,
       employmentStatus: profile.employment_status ?? undefined,
       incomeRange: profile.income_range ?? undefined,
-      ethnicity: profile.ethnicity ?? undefined,
+      // "" rather than undefined: reset() leaves a text field as it is for an
+      // undefined value, so a value removed elsewhere (the consent dialog's
+      // "Retirer mon origine ethnique") would stay in the box and be saved back.
+      ethnicity: profile.ethnicity ?? "",
       religion: profile.religion ?? undefined,
       religiosityLevel: profile.religiosity_level ?? undefined,
       languagesSpoken: profile.languages_spoken ?? [],
@@ -108,13 +113,15 @@ export function ProfileForm({ completion }: { completion: number }) {
       wantsChildren: profile.wants_children ?? undefined,
       communeInseeCode: profile.commune_insee_code ?? undefined,
       originCountryCode: profile.origin_country_code ?? undefined,
-      specialCategoryConsent: (profile.special_category_consent ?? false) as ProfileInput["specialCategoryConsent"],
+      // Ticked only if they accepted the *current* wording: a member who agreed
+      // to an earlier one sees the box empty and has to read and tick the new text.
+      specialCategoryConsent: hasCurrentSpecialCategoryConsent(profile) as ProfileInput["specialCategoryConsent"],
     } as unknown as ProfileInput);
   }, [profile, reset]);
 
   function onSubmit(values: ProfileInput) {
     upsert.mutate(
-      { input: values, isFirstConsent: !profile?.special_category_consent },
+      { input: values, recordConsent: !profile || !hasCurrentSpecialCategoryConsent(profile) },
       {
         // No manual reset needed here — a successful save invalidates the
         // my-profile query, which reruns the effect above with fresh values
@@ -446,7 +453,7 @@ export function ProfileForm({ completion }: { completion: number }) {
         <Field error={errors.specialCategoryConsent?.message} full>
           {() => (
             <Checkbox
-              label="J'accepte que mes données relatives à ma religion et mon niveau de pratique religieuse soient collectées et utilisées dans le cadre de mon profil de rencontre (données sensibles au sens du RGPD)."
+              label={SPECIAL_CATEGORY_CONSENT_TEXT}
               {...register("specialCategoryConsent")}
             />
           )}
