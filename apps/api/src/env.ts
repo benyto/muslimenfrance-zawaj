@@ -19,6 +19,11 @@ const envSchema = z.object({
   // value; the integration test suite raises it because it fires far more than
   // 300 requests a minute from one address.
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
+  // How long Stripe webhook events are kept (see lib/maintenance.ts). They only
+  // exist to recognise a redelivery, and Stripe stops redelivering within days,
+  // so the floor is a week — shorter than that and a late retry of a processed
+  // event would be handled a second time.
+  WEBHOOK_EVENT_RETENTION_DAYS: z.coerce.number().int().min(7).default(90),
   SUPABASE_URL: z.string().url(),
   // Non-secret — same value as apps/web's VITE_SUPABASE_PUBLISHABLE_KEY.
   // Used as the base client key for request-scoped (RLS-respecting) calls.

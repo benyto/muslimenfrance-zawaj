@@ -1086,6 +1086,10 @@ export type Database = {
         Args: { p_ignored_profile_id: string; p_ignorer_profile_id: string }
         Returns: boolean
       }
+      prune_webhook_events: {
+        Args: { p_older_than_days: number }
+        Returns: number
+      }
       release_message_email_slot: {
         Args: { p_conversation_id: string; p_recipient_profile_id: string }
         Returns: undefined

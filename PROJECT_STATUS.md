@@ -240,8 +240,8 @@ resurrect a canceled subscription. Emails are sent only after the event is
 marked processed, and never fail the webhook. Migration
 `20261115090000_webhook_event_state.sql`. Not covered: two *different*
 events for one subscription processed at the exact same instant (both read
-current state, so they converge); a retention job to prune old
-`webhook_events` rows.
+current state, so they converge). Old rows are pruned — see "Webhook event
+cleanup" below.
 
 ### Account export (done)
 
@@ -288,6 +288,17 @@ pointer to the person who acted is dropped.
 expired ("Expired API Key provided"). Roll a new one before testing
 checkout or subscriptions. The live-subscription cancellation path on
 account deletion has therefore not been exercised against real Stripe objects.
+
+### Webhook event cleanup (done — migration needs applying)
+
+`webhook_events` only exists to recognise a redelivered Stripe event, so old
+rows are deleted by `prune_webhook_events()` (migration
+`20261116090000_prune_webhook_events.sql`, service-role only). The API runs it
+at startup and then daily (`lib/maintenance.ts`); a failure is logged and never
+affects requests. **Retention is `WEBHOOK_EVENT_RETENTION_DAYS`** in the API's
+environment: default 90, minimum 7 (shorter than Stripe's redelivery window
+would let a late retry be processed twice). Events still being processed are
+never removed. Until the migration is applied the daily job just logs an error.
 
 ### Integration tests (done)
 

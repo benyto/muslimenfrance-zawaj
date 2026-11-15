@@ -1,7 +1,7 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import Stripe from "stripe";
-import { env } from "./helpers/env.js";
+import { env, isLocal } from "./helpers/env.js";
 import { admin, cleanup, createMember, RUN, trackWebhookEvent, type Member } from "./helpers/world.js";
 
 // Only events that never call back to Stripe are driven end to end here — the
@@ -125,5 +125,46 @@ describe("claim_webhook_event", () => {
     const m = await createMember({ label: "wh-client" });
     const res = await m.client.rpc("claim_webhook_event", { p_id: "x", p_type: "x" });
     assert.ok(res.error);
+  });
+});
+
+describe("prune_webhook_events", () => {
+  after(cleanup);
+  const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+  const exists = async (id: string) => ((await admin.from("webhook_events").select("id").eq("id", id)).data ?? []).length === 1;
+
+  it("is not callable by members, and refuses a retention below one day", async () => {
+    const m = await createMember({ label: "prune-client" });
+    assert.ok((await m.client.rpc("prune_webhook_events", { p_older_than_days: 1 })).error);
+    assert.ok((await admin.rpc("prune_webhook_events", { p_older_than_days: 0 })).error);
+  });
+
+  // Removes whatever is old in the whole table, so only against a throwaway stack.
+  it("removes finished events older than the period and nothing else", { skip: !isLocal && "would delete real events on a shared database" }, async () => {
+    const rows = {
+      oldProcessed: { id: trackWebhookEvent(`evt_test_${RUN}_old_processed`), status: "processed", processed_at: daysAgo(100), received_at: daysAgo(100) },
+      oldFailed: { id: trackWebhookEvent(`evt_test_${RUN}_old_failed`), status: "failed", processed_at: null, received_at: daysAgo(100) },
+      oldInFlight: { id: trackWebhookEvent(`evt_test_${RUN}_old_processing`), status: "processing", processed_at: null, received_at: daysAgo(100) },
+      recent: { id: trackWebhookEvent(`evt_test_${RUN}_recent`), status: "processed", processed_at: daysAgo(10), received_at: daysAgo(10) },
+      almost: { id: trackWebhookEvent(`evt_test_${RUN}_almost`), status: "processed", processed_at: daysAgo(89), received_at: daysAgo(89) },
+    };
+    const { error } = await admin.from("webhook_events").insert(Object.values(rows).map((r) => ({ ...r, type: "test" })));
+    assert.ifError(error);
+
+    const first = await admin.rpc("prune_webhook_events", { p_older_than_days: 90 });
+    assert.ifError(first.error);
+    assert.ok((first.data as number) >= 2);
+    assert.equal(await exists(rows.oldProcessed.id), false);
+    assert.equal(await exists(rows.oldFailed.id), false);
+    assert.equal(await exists(rows.oldInFlight.id), true, "an event still being processed is kept");
+    assert.equal(await exists(rows.recent.id), true);
+    assert.equal(await exists(rows.almost.id), true, "89 days is inside a 90-day period");
+
+    // A shorter period reaches further back.
+    const second = await admin.rpc("prune_webhook_events", { p_older_than_days: 30 });
+    assert.ifError(second.error);
+    assert.equal(await exists(rows.almost.id), false);
+    assert.equal(await exists(rows.recent.id), true);
+    assert.equal((await admin.rpc("prune_webhook_events", { p_older_than_days: 30 })).data, 0, "nothing left to do");
   });
 });
