@@ -12,7 +12,7 @@ const PHOTO_LINK_TTL_SECONDS = 7 * 24 * 60 * 60;
 // moderated something (moderated_by / reviewed_by), moderators' private notes
 // on a report (admin_notes), and storage paths (replaced by working links).
 const PROFILE_COLUMNS =
-  "id, nickname, bio, looking_for, gender, birthdate, interests, height, weight, eye_color, hair_color, body_type, education_level, occupation, employment_status, income_range, ethnicity, religion, religiosity_level, languages_spoken, relationship_goal, smoker, drinker, has_children, wants_children, commune_insee_code, origin_country_code, moderation_status, moderation_notes, moderated_at, special_category_consent, special_category_consent_at, show_online_status, email_new_message_notifications, email_new_message_cooldown_minutes, last_seen_at, deleted_at, created_at, updated_at";
+  "id, nickname, bio, looking_for, bio_pending, looking_for_pending, gender, birthdate, interests, height, weight, eye_color, hair_color, body_type, education_level, occupation, employment_status, income_range, ethnicity, religion, religiosity_level, languages_spoken, relationship_goal, smoker, drinker, has_children, wants_children, commune_insee_code, origin_country_code, moderation_status, moderation_notes, moderated_at, special_category_consent, special_category_consent_at, show_online_status, email_new_message_notifications, email_new_message_cooldown_minutes, last_seen_at, deleted_at, created_at, updated_at";
 const PHOTO_COLUMNS = "id, storage_key, position, visibility, moderation_status, created_at";
 const CONVERSATION_COLUMNS = "id, profile1_id, profile2_id, created_at";
 const MESSAGE_COLUMNS =

@@ -593,6 +593,7 @@ export type Database = {
       profiles: {
         Row: {
           bio: string | null
+          bio_pending: string | null
           birthdate: string
           body_type: string | null
           commune_insee_code: string | null
@@ -615,6 +616,7 @@ export type Database = {
           languages_spoken: string[]
           last_seen_at: string | null
           looking_for: string | null
+          looking_for_pending: string | null
           moderated_at: string | null
           moderated_by: string | null
           moderation_notes: string | null
@@ -629,6 +631,7 @@ export type Database = {
           smoker: string | null
           special_category_consent: boolean
           special_category_consent_at: string | null
+          text_review_version: number
           updated_at: string
           user_id: string
           wants_children: string | null
@@ -636,6 +639,7 @@ export type Database = {
         }
         Insert: {
           bio?: string | null
+          bio_pending?: string | null
           birthdate: string
           body_type?: string | null
           commune_insee_code?: string | null
@@ -658,6 +662,7 @@ export type Database = {
           languages_spoken?: string[]
           last_seen_at?: string | null
           looking_for?: string | null
+          looking_for_pending?: string | null
           moderated_at?: string | null
           moderated_by?: string | null
           moderation_notes?: string | null
@@ -672,6 +677,7 @@ export type Database = {
           smoker?: string | null
           special_category_consent?: boolean
           special_category_consent_at?: string | null
+          text_review_version?: number
           updated_at?: string
           user_id: string
           wants_children?: string | null
@@ -679,6 +685,7 @@ export type Database = {
         }
         Update: {
           bio?: string | null
+          bio_pending?: string | null
           birthdate?: string
           body_type?: string | null
           commune_insee_code?: string | null
@@ -701,6 +708,7 @@ export type Database = {
           languages_spoken?: string[]
           last_seen_at?: string | null
           looking_for?: string | null
+          looking_for_pending?: string | null
           moderated_at?: string | null
           moderated_by?: string | null
           moderation_notes?: string | null
@@ -715,6 +723,7 @@ export type Database = {
           smoker?: string | null
           special_category_consent?: boolean
           special_category_consent_at?: string | null
+          text_review_version?: number
           updated_at?: string
           user_id?: string
           wants_children?: string | null
@@ -966,6 +975,7 @@ export type Database = {
           created_at: string
           email: string
           gender: string
+          has_pending_texts: boolean
           id: string
           moderation_status: string
           nickname: string
@@ -1098,6 +1108,65 @@ export type Database = {
         Args: { p_owner_profile_id: string }
         Returns: undefined
       }
+      review_profile_texts: {
+        Args: {
+          p_approve: boolean
+          p_expected_version: number
+          p_profile_id: string
+        }
+        Returns: {
+          bio: string | null
+          bio_pending: string | null
+          birthdate: string
+          body_type: string | null
+          commune_insee_code: string | null
+          created_at: string
+          deleted_at: string | null
+          drinker: string | null
+          education_level: string | null
+          email_new_message_cooldown_minutes: number
+          email_new_message_notifications: boolean
+          employment_status: string | null
+          ethnicity: string | null
+          eye_color: string | null
+          gender: string
+          hair_color: string | null
+          has_children: boolean | null
+          height: number | null
+          id: string
+          income_range: string | null
+          interests: string[]
+          languages_spoken: string[]
+          last_seen_at: string | null
+          looking_for: string | null
+          looking_for_pending: string | null
+          moderated_at: string | null
+          moderated_by: string | null
+          moderation_notes: string | null
+          moderation_status: string
+          nickname: string
+          occupation: string | null
+          origin_country_code: string | null
+          relationship_goal: string | null
+          religion: string | null
+          religiosity_level: string | null
+          show_online_status: boolean
+          smoker: string | null
+          special_category_consent: boolean
+          special_category_consent_at: string | null
+          text_review_version: number
+          updated_at: string
+          user_id: string
+          wants_children: string | null
+          weight: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       search_profiles: {
         Args: {
           p_commune_insee_code?: string
@@ -1152,6 +1221,10 @@ export type Database = {
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      submit_profile_texts: {
+        Args: { p_bio: string; p_looking_for: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

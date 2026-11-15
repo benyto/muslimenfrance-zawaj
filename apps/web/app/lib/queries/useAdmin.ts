@@ -4,6 +4,8 @@ import { supabase } from "~/lib/supabase-client";
 import { apiFetch } from "~/lib/api-client";
 
 type ProfileModerationStatus = "pending" | "approved" | "rejected" | "disabled";
+// Not a moderation status: approved profiles whose text edit awaits review.
+export type ProfileListFilter = ProfileModerationStatus | "texts_pending" | "all";
 type PhotoModerationStatus = "pending" | "approved" | "rejected";
 type ReportStatus = "pending" | "reviewed" | "resolved" | "dismissed";
 
@@ -21,7 +23,7 @@ const PROFILES_PAGE_SIZE = 20;
 // for that read, and folds pagination in too: count(*) over() returns the
 // total match count alongside each page's rows in the same query.
 export function useAdminProfilesSearch(
-  status: ProfileModerationStatus | "all",
+  status: ProfileListFilter,
   subscriptionStatus: string,
   search: string,
   page: number
@@ -87,6 +89,24 @@ export function useModerateProfile() {
         body: JSON.stringify({ status: params.status, notes: params.notes }),
       }),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-profile"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-counts"] });
+    },
+  });
+}
+
+export function useReviewProfileTexts() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { id: string; decision: "approved" | "rejected"; version: number; notes?: string }) =>
+      apiFetch(`/admin/profiles/${params.id}/texts/review`, {
+        method: "POST",
+        body: JSON.stringify({ decision: params.decision, version: params.version, notes: params.notes }),
+      }),
+    // Also on failure: a refused decision (409 — the member edited again, or
+    // someone else already decided) should show the up-to-date state.
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-profiles"] });
       queryClient.invalidateQueries({ queryKey: ["admin-profile"] });
       queryClient.invalidateQueries({ queryKey: ["admin-counts"] });
@@ -218,17 +238,22 @@ export function useAdminCounts() {
   return useQuery({
     queryKey: ["admin-counts"],
     queryFn: async () => {
-      const [pendingProfiles, pendingPhotos, pendingReports, totalProfiles] = await Promise.all([
+      const [pendingProfiles, pendingPhotos, pendingReports, totalProfiles, pendingTexts] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }).eq("moderation_status", "pending"),
         supabase.from("profile_photos").select("id", { count: "exact", head: true }).eq("moderation_status", "pending"),
         supabase.from("reports").select("id", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("profiles").select("id", { count: "exact", head: true }),
+        supabase
+          .from("profiles")
+          .select("id", { count: "exact", head: true })
+          .or("bio_pending.not.is.null,looking_for_pending.not.is.null"),
       ]);
       return {
         pendingProfiles: pendingProfiles.count ?? 0,
         pendingPhotos: pendingPhotos.count ?? 0,
         pendingReports: pendingReports.count ?? 0,
         totalProfiles: totalProfiles.count ?? 0,
+        pendingTexts: pendingTexts.count ?? 0,
       };
     },
   });

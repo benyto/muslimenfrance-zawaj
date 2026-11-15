@@ -18,6 +18,7 @@ import {
   useAdminProfilePhotos,
   useModerateProfile,
   useModeratePhoto,
+  useReviewProfileTexts,
 } from "~/lib/queries/useAdmin";
 import { PhotoImg, usePhotoUrls } from "~/lib/photo-urls";
 import { Sheet, ConfirmDialog } from "~/components/ui/sheet";
@@ -26,6 +27,23 @@ import { Badge, Skeleton } from "~/components/ui/primitives";
 import { Button } from "~/components/ui/button";
 import { Field, Textarea } from "~/components/ui/form";
 import { cn } from "~/lib/cn";
+
+// The text a member wants to put live, next to the text that is live now.
+function PendingText({ label, current, proposed }: { label: string; current: string | null; proposed: string }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className="text-xs font-medium uppercase tracking-wide text-muted">{label}</span>
+      <div className="rounded-lg bg-raised p-3">
+        <p className="text-xs text-muted">Actuel</p>
+        <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-muted">{current || "— vide —"}</p>
+      </div>
+      <div className="rounded-lg bg-raised p-3 ring-1 ring-warning/50">
+        <p className="text-xs text-muted">Proposé</p>
+        <p className="mt-0.5 whitespace-pre-wrap break-words text-sm text-ink">{proposed}</p>
+      </div>
+    </div>
+  );
+}
 
 const statusTone: Record<string, "warning" | "success" | "danger" | "neutral"> = {
   pending: "warning",
@@ -60,7 +78,9 @@ export function AdminProfileDetailSheet({
   const { data: photos } = useAdminProfilePhotos(profileId ?? undefined);
   const moderateProfile = useModerateProfile();
   const moderatePhoto = useModeratePhoto();
+  const reviewTexts = useReviewProfileTexts();
   const [notes, setNotes] = useState("");
+  const [textNotes, setTextNotes] = useState("");
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [showRejectConfirm, setShowRejectConfirm] = useState(false);
   const [showDisableConfirm, setShowDisableConfirm] = useState(false);
@@ -151,6 +171,64 @@ export function AdminProfileDetailSheet({
                 <p className="text-sm text-muted">Aucune photo.</p>
               )}
             </div>
+
+            {(profile.bio_pending != null || profile.looking_for_pending != null) && (
+              <div className="flex flex-col gap-3 rounded-xl border border-warning/40 bg-warning-soft p-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-ink">Modification du texte à valider</h3>
+                  <p className="mt-0.5 text-xs text-muted">
+                    Le profil reste en ligne avec le texte actuel tant que vous n&apos;avez pas décidé.
+                  </p>
+                </div>
+                {profile.bio_pending != null && (
+                  <PendingText label="À propos" current={profile.bio} proposed={profile.bio_pending} />
+                )}
+                {profile.looking_for_pending != null && (
+                  <PendingText label="Recherche" current={profile.looking_for} proposed={profile.looking_for_pending} />
+                )}
+                <Field label="Motif (si rejet)">
+                  {(props) => (
+                    <Textarea {...props} value={textNotes} onChange={(e) => setTextNotes(e.target.value)} rows={2} />
+                  )}
+                </Field>
+                <div className="flex gap-2">
+                  <Button
+                    variant="primary"
+                    className="flex-1"
+                    loading={reviewTexts.isPending}
+                    onClick={() =>
+                      reviewTexts.mutate(
+                        { id: profile.id, decision: "approved", version: profile.text_review_version },
+                        { onSuccess: () => setTextNotes("") }
+                      )
+                    }
+                  >
+                    Approuver
+                  </Button>
+                  <Button
+                    variant="danger"
+                    className="flex-1"
+                    disabled={reviewTexts.isPending}
+                    onClick={() =>
+                      reviewTexts.mutate(
+                        {
+                          id: profile.id,
+                          decision: "rejected",
+                          version: profile.text_review_version,
+                          notes: textNotes || undefined,
+                        },
+                        { onSuccess: () => setTextNotes("") }
+                      )
+                    }
+                  >
+                    Rejeter
+                  </Button>
+                </div>
+                {reviewTexts.isError && (
+                  <p className="text-sm text-danger">{(reviewTexts.error as Error).message}</p>
+                )}
+              </div>
+            )}
 
             {profile.bio && (
               <div>

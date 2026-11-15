@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import { Eye, Search, ChevronLeft, ChevronRight, Ban, RotateCcw } from "lucide-react";
 import {
   useAdminProfilesSearch,
@@ -15,6 +16,7 @@ import { ConfirmDialog } from "~/components/ui/sheet";
 
 const statusFilters = [
   { value: "pending", label: "En attente" },
+  { value: "texts_pending", label: "Textes à valider" },
   { value: "approved", label: "Approuvés" },
   { value: "rejected", label: "Rejetés" },
   { value: "disabled", label: "Désactivés" },
@@ -58,7 +60,12 @@ const subscriptionTone: Record<string, "warning" | "success" | "danger" | "neutr
 };
 
 export default function AdminProfiles() {
-  const [status, setStatus] = useState<(typeof statusFilters)[number]["value"]>("pending");
+  // The dashboard's "Textes à valider" card opens this list pre-filtered.
+  const [searchParams] = useSearchParams();
+  const requested = searchParams.get("filter");
+  const [status, setStatus] = useState<(typeof statusFilters)[number]["value"]>(
+    statusFilters.some((f) => f.value === requested) ? (requested as (typeof statusFilters)[number]["value"]) : "pending"
+  );
   const [subscriptionStatus, setSubscriptionStatus] =
     useState<(typeof subscriptionStatusFilters)[number]["value"]>("all");
   const [searchInput, setSearchInput] = useState("");
@@ -255,6 +262,11 @@ function ProfileListRow({
           <p className="truncate text-xs text-muted">{profile.email}</p>
         </div>
       </button>
+      {profile.has_pending_texts && (
+        <Badge tone="warning" className="shrink-0">
+          Texte à valider
+        </Badge>
+      )}
       <Badge tone={statusTone[profile.moderation_status]} className="hidden shrink-0 sm:inline-flex">
         {profile.moderation_status}
       </Badge>

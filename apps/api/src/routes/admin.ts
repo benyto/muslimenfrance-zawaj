@@ -6,6 +6,7 @@ import { sendEmail } from "../lib/email/send.js";
 import {
   profileModeratedEmail,
   photoRejectedEmail,
+  profileTextsReviewedEmail,
   reportResolvedEmail,
 } from "../lib/email/templates.js";
 import type { Database } from "@rencontre/shared";
@@ -14,6 +15,14 @@ type Json = Database["public"]["Tables"]["admin_audit_log"]["Insert"]["before"];
 
 const moderateProfileSchema = z.object({
   status: z.enum(["approved", "rejected", "disabled"]),
+  notes: z.string().max(1000).optional(),
+});
+
+const reviewProfileTextsSchema = z.object({
+  decision: z.enum(["approved", "rejected"]),
+  // The version the moderator was shown (profiles.text_review_version). If the
+  // member has changed their text since, the decision is refused.
+  version: z.number().int().min(0),
   notes: z.string().max(1000).optional(),
 });
 
@@ -124,6 +133,79 @@ export async function adminRoutes(fastify: FastifyInstance) {
           });
           await sendEmail(email, { subject, html });
         }
+      }
+
+      return after;
+    },
+  );
+
+  // Approves or rejects the text edit (about me / looking for) a member made
+  // on an already-approved profile. Until then the profile keeps showing its
+  // previous text. See migration 20261116100000_profile_text_review.sql.
+  fastify.post<{ Params: { id: string } }>(
+    "/admin/profiles/:id/texts/review",
+    { preHandler: adminPreHandler },
+    async (request, reply) => {
+      const parsed = reviewProfileTextsSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.code(400).send({
+          error: parsed.error.issues[0]?.message ?? "Invalid request",
+        });
+      }
+      const approve = parsed.data.decision === "approved";
+
+      const { data: before } = await supabaseAdmin
+        .from("profiles")
+        .select("user_id, nickname, bio, looking_for, bio_pending, looking_for_pending")
+        .eq("id", request.params.id)
+        .maybeSingle();
+      if (!before) {
+        return reply.code(404).send({ error: "Profil introuvable" });
+      }
+
+      const { data: after, error } = await supabaseAdmin.rpc("review_profile_texts", {
+        p_profile_id: request.params.id,
+        p_approve: approve,
+        p_expected_version: parsed.data.version,
+      });
+      if (error || !after) {
+        const known: Record<string, { status: number; error: string }> = {
+          NO_PENDING_TEXT: { status: 409, error: "Aucune modification en attente pour ce profil" },
+          STALE_REVIEW: {
+            status: 409,
+            error: "Le membre a modifié son texte entre-temps — rechargez pour voir la dernière version",
+          },
+          PROFILE_NOT_FOUND: { status: 404, error: "Profil introuvable" },
+        };
+        const mapped = error ? known[error.message] : undefined;
+        if (mapped) return reply.code(mapped.status).send({ error: mapped.error });
+        request.log.error(error, "Failed to review profile texts");
+        return reply.code(500).send({ error: "Échec de la mise à jour" });
+      }
+
+      await writeAuditLog({
+        adminUserId: request.user!.id,
+        action: `profile_texts_${parsed.data.decision}`,
+        targetType: "profile",
+        targetId: request.params.id,
+        before: {
+          bio: before.bio,
+          looking_for: before.looking_for,
+          bio_pending: before.bio_pending,
+          looking_for_pending: before.looking_for_pending,
+        },
+        after: { bio: after.bio, looking_for: after.looking_for },
+        ip: request.ip,
+      });
+
+      const email = await getUserEmail(before.user_id);
+      if (email) {
+        const { subject, html } = profileTextsReviewedEmail({
+          nickname: before.nickname,
+          approved: approve,
+          notes: parsed.data.notes,
+        });
+        await sendEmail(email, { subject, html });
       }
 
       return after;

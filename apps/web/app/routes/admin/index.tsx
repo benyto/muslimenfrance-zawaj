@@ -1,10 +1,11 @@
 import { Link } from "react-router";
-import { Users, Image as ImageIcon, Flag, UsersRound } from "lucide-react";
+import { Users, Image as ImageIcon, Flag, UsersRound, FileText } from "lucide-react";
 import { useAdminCounts } from "~/lib/queries/useAdmin";
 import { Skeleton } from "~/components/ui/primitives";
 
 const cards = [
   { key: "pendingProfiles", label: "Profils en attente", to: "/admin/profiles", icon: Users, tone: "warning" },
+  { key: "pendingTexts", label: "Textes à valider", to: "/admin/profiles?filter=texts_pending", icon: FileText, tone: "warning" },
   { key: "pendingPhotos", label: "Photos en attente", to: "/admin/photos", icon: ImageIcon, tone: "warning" },
   { key: "pendingReports", label: "Signalements en attente", to: "/admin/reports", icon: Flag, tone: "danger" },
   { key: "totalProfiles", label: "Profils au total", to: "/admin/profiles", icon: UsersRound, tone: "neutral" },
@@ -26,7 +27,7 @@ export default function AdminHome() {
         Modération, signalements et configuration des abonnements.
       </p>
 
-      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {cards.map(({ key, label, to, icon: Icon, tone }) => (
           <Link
             key={key}

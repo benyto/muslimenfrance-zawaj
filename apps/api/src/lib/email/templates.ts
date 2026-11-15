@@ -125,6 +125,38 @@ export function photoRejectedEmail(params: { nickname: string }) {
   };
 }
 
+// Free text from a person (a nickname, a moderator's note) going into HTML.
+const escapeHtml = (value: string) =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+export function profileTextsReviewedEmail(params: { nickname: string; approved: boolean; notes?: string }) {
+  const nickname = escapeHtml(params.nickname);
+  if (params.approved) {
+    return {
+      subject: "Vos modifications de profil sont en ligne",
+      html: emailLayout(
+        "Modifications approuvées",
+        `<p>Bonjour ${nickname},</p>
+         <p>Les modifications de votre présentation ont été vérifiées : elles sont maintenant visibles par les autres membres.</p>`,
+        `${env.SITE_URL}/profile/me`,
+        "Voir mon profil"
+      ),
+    };
+  }
+  return {
+    subject: "Vos modifications de profil n'ont pas été approuvées",
+    html: emailLayout(
+      "Modifications non approuvées",
+      `<p>Bonjour ${nickname},</p>
+       <p>Les modifications de votre présentation n'ont pas pu être approuvées. Votre texte précédent reste affiché.</p>
+       ${params.notes ? `<p><strong>Motif :</strong> ${escapeHtml(params.notes)}</p>` : ""}
+       <p>Vous pouvez les modifier et les soumettre à nouveau.</p>`,
+      `${env.SITE_URL}/profile/me`,
+      "Modifier mon profil"
+    ),
+  };
+}
+
 export function reportResolvedEmail() {
   return {
     subject: "Votre signalement a été traité",

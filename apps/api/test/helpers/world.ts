@@ -31,6 +31,9 @@ type MemberOptions = {
   role?: "admin" | "moderator";
   gender?: "male" | "female";
   emailNotifications?: boolean;
+  /** Live (already approved) text, written directly as the service role. */
+  bio?: string;
+  lookingFor?: string;
 };
 
 /**
@@ -62,6 +65,8 @@ export async function createMember(options: MemberOptions = {}): Promise<Member>
       special_category_consent_at: new Date().toISOString(),
       moderation_status: options.status ?? "approved",
       email_new_message_notifications: options.emailNotifications ?? false,
+      bio: options.bio ?? null,
+      looking_for: options.lookingFor ?? null,
     })
     .select("id")
     .single();

@@ -289,6 +289,32 @@ expired ("Expired API Key provided"). Roll a new one before testing
 checkout or subscriptions. The live-subscription cancellation path on
 account deletion has therefore not been exercised against real Stripe objects.
 
+### Profile text review (done — migration needs applying)
+
+Edits to **bio** and **"what I'm looking for"** on an approved profile are held
+for a moderator; **new photos** already were (they start `pending` and others
+never see them). While an edit waits, the profile stays visible with its
+previous approved text. Nickname and the other fields are not reviewed.
+
+- Pending text lives in `profiles.bio_pending` / `looking_for_pending`
+  (readable only by the author and moderators); `text_review_version` is bumped
+  whenever it changes. Migration `20261116100000_profile_text_review.sql`.
+- **Enforced in the database**, because members write to `profiles` directly: a
+  trigger refuses direct changes to those columns (and to the pending ones) for
+  an approved profile. The form saves them through `submit_profile_texts()`,
+  which makes a changed text pending, applies a cleared field immediately, and
+  cancels the pending edit if the member types the live text back. A profile
+  that isn't approved yet takes text directly (the whole profile is reviewed).
+- Moderators: `POST /admin/profiles/:id/texts/review` (`decision`, `version`,
+  `notes`) → `review_profile_texts()`. The decision carries the version the
+  moderator was shown; if the member rewrote it meanwhile it is refused (409)
+  rather than approving unseen text. Audit-logged; the member is emailed.
+  Admin UI: "Textes à valider" filter and dashboard card, and an
+  Actuel / Proposé panel in the profile sheet.
+- Included in the GDPR export. Tests: `apps/api/test/profile-text-review.test.ts`.
+- **Deploy order matters:** apply the migration *before* the new web build —
+  the new form calls `submit_profile_texts`, which doesn't exist until then.
+
 ### Webhook event cleanup (done — migration needs applying)
 
 `webhook_events` only exists to recognise a redelivered Stripe event, so old

@@ -6,8 +6,10 @@ import { useSession } from "~/lib/auth/useSession";
 function toRow(input: ProfileInput) {
   return {
     nickname: input.nickname,
-    bio: input.bio ?? null,
-    looking_for: input.lookingFor ?? null,
+    // bio / looking_for are deliberately not written here: on an approved
+    // profile the database refuses direct changes to them, because an edit has
+    // to be validated by a moderator first. They go through
+    // submit_profile_texts below.
     gender: input.gender,
     birthdate: input.birthdate,
     interests: input.interests,
@@ -61,6 +63,15 @@ export function useUpsertProfile() {
         .single();
 
       if (error) throw error;
+
+      // Saved in a second step so an approved profile's edited text becomes a
+      // pending change (the previous text stays visible until a moderator
+      // approves it) instead of overwriting the live one.
+      const { error: textsError } = await supabase.rpc("submit_profile_texts", {
+        p_bio: input.bio ?? "",
+        p_looking_for: input.lookingFor ?? "",
+      });
+      if (textsError) throw textsError;
       return data;
     },
     onSuccess: () => {

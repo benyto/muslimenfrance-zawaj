@@ -80,8 +80,10 @@ export function ProfileForm({ completion }: { completion: number }) {
     if (!profile) return;
     reset({
       nickname: profile.nickname ?? "",
-      bio: profile.bio ?? "",
-      lookingFor: profile.looking_for ?? "",
+      // What the member last wrote: their pending edit if one is waiting for
+      // validation, otherwise the live text.
+      bio: profile.bio_pending ?? profile.bio ?? "",
+      lookingFor: profile.looking_for_pending ?? profile.looking_for ?? "",
       gender: (profile.gender as ProfileInput["gender"]) ?? undefined,
       birthdate: profile.birthdate ?? "",
       interests: profile.interests ?? [],
@@ -185,6 +187,15 @@ export function ProfileForm({ completion }: { completion: number }) {
       </Section>
 
       <Section title="À propos de moi">
+        {(profile?.bio_pending != null || profile?.looking_for_pending != null) && (
+          <p
+            role="status"
+            className="rounded-xl bg-warning-soft px-3.5 py-2.5 text-sm text-warning sm:col-span-2"
+          >
+            Vos dernières modifications sont en attente de validation. Les autres membres continuent de voir
+            votre version précédente jusqu&apos;à son approbation.
+          </p>
+        )}
         <Field label="Parlez de vous" error={errors.bio?.message} full>
           {(props) => (
             <Textarea
