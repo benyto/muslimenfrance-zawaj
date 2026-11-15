@@ -1,6 +1,6 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { admin, api, cleanup, createMember, grantSubscription, RUN, type Member } from "./helpers/world.js";
+import { admin, api, cleanup, createMember, RUN, type Member } from "./helpers/world.js";
 
 const ALLOWED_KEYS = new Set(["moderation_status", "status", "bio_changed", "looking_for_changed"]);
 
@@ -18,7 +18,6 @@ describe("moderation audit log", () => {
     moderator = await createMember({ label: "audit-mod", role: "moderator" });
     subject = await createMember({ label: "audit-subject", status: "pending", bio: SECRET_BIO, lookingFor: "x" });
     reporter = await createMember({ label: "audit-reporter" });
-    await grantSubscription(subject);
     nickname = (await admin.from("profiles").select("nickname").eq("id", subject.profileId).single()).data!.nickname;
 
     // One decision of every kind that writes an entry.
