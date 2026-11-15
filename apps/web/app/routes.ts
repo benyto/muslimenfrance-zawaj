@@ -10,6 +10,12 @@ export default [
   route("auth/login", "routes/auth/login.tsx"),
   route("auth/verify", "routes/auth/verify.tsx"),
 
+  // Public on purpose: they must be readable before signing in, and by
+  // people who aren't members.
+  route("cgu", "routes/legal/cgu.tsx"),
+  route("confidentialite", "routes/legal/confidentialite.tsx"),
+  route("mentions-legales", "routes/legal/mentions-legales.tsx"),
+
   layout("lib/auth/RequireAuth.tsx", [
     layout("components/layout/AppShell.tsx", [
       // Members whose profile isn't approved yet are held at /verification

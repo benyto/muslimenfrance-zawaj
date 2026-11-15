@@ -1,5 +1,5 @@
 import { env } from "../../env.js";
-import { emailLayout } from "./layout.js";
+import { emailLayout, escapeHtml } from "./layout.js";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
@@ -7,11 +7,12 @@ function formatDate(iso: string) {
 
 export function newMessageEmail(params: { recipientNickname: string; senderNickname: string; preview: string }) {
   return {
+    // The subject is plain text, not HTML — escaping it would show "&lt;".
     subject: `${params.senderNickname} vous a envoyé un message`,
     html: emailLayout(
-      `Nouveau message de ${params.senderNickname}`,
-      `<p>Bonjour ${params.recipientNickname},</p>
-       <p><strong>${params.senderNickname}</strong> vous a envoyé un message : « ${params.preview} »</p>`,
+      `Nouveau message de ${params.senderNickname}`, // escaped by the layout
+      `<p>Bonjour ${escapeHtml(params.recipientNickname)},</p>
+       <p><strong>${escapeHtml(params.senderNickname)}</strong> vous a envoyé un message : « ${escapeHtml(params.preview)} »</p>`,
       `${env.SITE_URL}/messages`,
       "Répondre"
     ),
@@ -26,7 +27,7 @@ export function subscriptionStartedEmail(params: { nickname: string; trialEnd: s
     subject: "Bienvenue dans votre abonnement Rencontre",
     html: emailLayout(
       "Abonnement activé",
-      `<p>Bonjour ${params.nickname},</p>
+      `<p>Bonjour ${escapeHtml(params.nickname)},</p>
        <p>Votre abonnement Rencontre est actif — vous pouvez désormais échanger librement avec les autres membres.</p>
        ${trialHtml}`,
       `${env.SITE_URL}/discover`,
@@ -40,7 +41,7 @@ export function trialEndingSoonEmail(params: { nickname: string; trialEnd: strin
     subject: "Votre période d'essai se termine bientôt",
     html: emailLayout(
       "Votre essai gratuit se termine bientôt",
-      `<p>Bonjour ${params.nickname},</p>
+      `<p>Bonjour ${escapeHtml(params.nickname)},</p>
        <p>Votre période d'essai gratuite se termine le <strong>${formatDate(params.trialEnd)}</strong>. Votre abonnement sera ensuite facturé automatiquement, sauf annulation.</p>`,
       `${env.SITE_URL}/settings`,
       "Gérer mon abonnement"
@@ -53,7 +54,7 @@ export function paymentFailedEmail(params: { nickname: string }) {
     subject: "Échec de paiement — action requise",
     html: emailLayout(
       "Échec de paiement",
-      `<p>Bonjour ${params.nickname},</p>
+      `<p>Bonjour ${escapeHtml(params.nickname)},</p>
        <p>Le paiement de votre abonnement Rencontre a échoué. Merci de mettre à jour votre moyen de paiement pour continuer à profiter de votre abonnement.</p>`,
       `${env.SITE_URL}/settings`,
       "Mettre à jour mon paiement"
@@ -66,7 +67,7 @@ export function subscriptionCanceledEmail(params: { nickname: string }) {
     subject: "Votre abonnement a été annulé",
     html: emailLayout(
       "Abonnement annulé",
-      `<p>Bonjour ${params.nickname},</p>
+      `<p>Bonjour ${escapeHtml(params.nickname)},</p>
        <p>Votre abonnement Rencontre a été annulé. Vous pouvez vous réabonner à tout moment.</p>`,
       `${env.SITE_URL}/settings`,
       "Se réabonner"
@@ -79,7 +80,7 @@ export function reportReceivedEmail(params: { nickname: string }) {
     subject: "Votre signalement a bien été reçu",
     html: emailLayout(
       "Signalement reçu",
-      `<p>Bonjour ${params.nickname},</p>
+      `<p>Bonjour ${escapeHtml(params.nickname)},</p>
        <p>Nous avons bien reçu votre signalement. Notre équipe de modération va l'examiner dans les plus brefs délais.</p>`
     ),
   };
@@ -91,7 +92,7 @@ export function profileModeratedEmail(params: { nickname: string; approved: bool
       subject: "Votre profil a été approuvé",
       html: emailLayout(
         "Profil approuvé",
-        `<p>Bonjour ${params.nickname},</p>
+        `<p>Bonjour ${escapeHtml(params.nickname)},</p>
          <p>Bonne nouvelle — votre profil a été vérifié et est maintenant visible par les autres membres.</p>`,
         `${env.SITE_URL}/discover`,
         "Découvrir des profils"
@@ -102,9 +103,9 @@ export function profileModeratedEmail(params: { nickname: string; approved: bool
     subject: "Votre profil n'a pas été approuvé",
     html: emailLayout(
       "Profil non approuvé",
-      `<p>Bonjour ${params.nickname},</p>
+      `<p>Bonjour ${escapeHtml(params.nickname)},</p>
        <p>Votre profil n'a pas pu être approuvé après vérification.</p>
-       ${params.notes ? `<p><strong>Motif :</strong> ${params.notes}</p>` : ""}
+       ${params.notes ? `<p><strong>Motif :</strong> ${escapeHtml(params.notes)}</p>` : ""}
        <p>Vous pouvez modifier votre profil et le soumettre à nouveau.</p>`,
       `${env.SITE_URL}/profile/me`,
       "Modifier mon profil"
@@ -117,17 +118,13 @@ export function photoRejectedEmail(params: { nickname: string }) {
     subject: "Une de vos photos n'a pas été approuvée",
     html: emailLayout(
       "Photo non approuvée",
-      `<p>Bonjour ${params.nickname},</p>
+      `<p>Bonjour ${escapeHtml(params.nickname)},</p>
        <p>L'une de vos photos n'a pas respecté nos règles de contenu et a été refusée. Vous pouvez en ajouter une autre depuis votre profil.</p>`,
       `${env.SITE_URL}/profile/me`,
       "Gérer mes photos"
     ),
   };
 }
-
-// Free text from a person (a nickname, a moderator's note) going into HTML.
-const escapeHtml = (value: string) =>
-  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 export function profileTextsReviewedEmail(params: { nickname: string; approved: boolean; notes?: string }) {
   const nickname = escapeHtml(params.nickname);

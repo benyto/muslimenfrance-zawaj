@@ -8,6 +8,7 @@ import { StarMark } from "~/components/ui/star";
 import { Button } from "~/components/ui/button";
 import { Field, Input } from "~/components/ui/form";
 import { Card } from "~/components/ui/primitives";
+import { LegalLinks } from "~/components/legal/legal";
 
 export default function Login() {
   const [searchParams] = useSearchParams();
@@ -91,6 +92,17 @@ export default function Login() {
             <Button type="submit" size="lg" loading={status === "sending"}>
               {status === "sending" ? "Envoi..." : "Recevoir le lien de connexion"}
             </Button>
+            <p className="text-center text-xs text-muted">
+              En continuant, vous acceptez nos{" "}
+              <Link to="/cgu" className="underline underline-offset-2 hover:text-ink">
+                conditions d&apos;utilisation
+              </Link>{" "}
+              et notre{" "}
+              <Link to="/confidentialite" className="underline underline-offset-2 hover:text-ink">
+                politique de confidentialité
+              </Link>
+              .
+            </p>
           </form>
         </>
       )}

@@ -283,6 +283,13 @@ pointer to the person who acted is dropped.
 - **Account deletion** cancels any live Stripe subscription first, and
   refuses to proceed (502) if Stripe can't be reached.
 - Removed the stale `pnpm-lock.yaml` (npm is the package manager).
+- **Email templates escape everything typed by a person** (nicknames, the
+  message preview, moderators' notes) via `escapeHtml` in
+  `lib/email/layout.ts`, which also escapes the title. Before this, a message
+  such as `<a href=…>` arrived as a live link in a mail from our own domain.
+  `test/email-templates.test.ts` feeds hostile text through every template and
+  fails if a template is added without being covered. Any new template must
+  escape its free-text parameters.
 
 **Needs your attention:** the Stripe *test* secret key in `apps/api/.env` is
 expired ("Expired API Key provided"). Roll a new one before testing
@@ -314,6 +321,42 @@ previous approved text. Nickname and the other fields are not reviewed.
 - Included in the GDPR export. Tests: `apps/api/test/profile-text-review.test.ts`.
 - **Deploy order matters:** apply the migration *before* the new web build —
   the new form calls `submit_profile_texts`, which doesn't exist until then.
+
+### Legal pages (draft — not launch-ready until the checklist below is done)
+
+Public pages `/cgu`, `/confidentialite`, `/mentions-legales`
+(`app/routes/legal/`), linked from the landing page, the login form
+("En continuant, vous acceptez…"), the profile form's consent section and
+Réglages. They were written from what the app actually does (data collected,
+processors, retention, moderation, deletion), in French, and **a lawyer should
+review them**.
+
+**Fill in `apps/web/app/lib/legal-config.ts`** — company name/form/registration/
+address, director of publication, contact e-mail, host, Supabase region,
+consumer mediator. Anything still `null` shows as a highlighted
+"[… — à compléter]" on the page, so gaps are visible, but nothing blocks a
+build: check each page before launch.
+
+**Before launch** (found while checking the text against the code):
+1. **Account deletion leaves personal data in the moderation audit log.**
+   `admin_audit_log` keeps a full profile snapshot (`before`/`after`) per
+   moderation decision and is not touched when an account is deleted. Either
+   erase/redact those entries on deletion or store only status fields.
+2. **Consent wording** (profile form) mentions religion and practice but not
+   **origin ethnique** (`ethnicity`), which is also special-category data
+   (GDPR art. 9). Update the label and re-collect consent from existing
+   members.
+3. **Checkout** shows no acceptance of the terms and no withdrawal-right
+   wording. For consumers in France, a paid subscription needs the 14-day
+   withdrawal information and, if service starts immediately, the member's
+   express request/waiver (Stripe `consent_collection` / `custom_text`).
+4. **Moderators can read every conversation** (RLS "admin select"). The
+   policy discloses it, limited to reports and security; decide whether to
+   restrict it to reported conversations in practice or in the database.
+5. **Inactive accounts** are never purged and no retention period is defined;
+   neither is the audit-log or backup retention. The policy has placeholders.
+6. New-message e-mails are **on by default** (opt-out), so the policy bases
+   them on legitimate interest rather than consent.
 
 ### Webhook event cleanup (done — migration needs applying)
 
@@ -374,9 +417,6 @@ server-only tables.
 - **Clickable message-notification toasts** — currently informational only;
   clicking one doesn't jump to the conversation. Would need extending the
   `Toast` primitive with an action/click slot.
-- **No legal/terms/privacy pages** — the landing page deliberately doesn't
-  link to them; they don't exist anywhere in this app, and a live 404 is
-  worse than no link.
 - **`PhotoManager` (own-profile photo editor)** doesn't use the lightbox —
   it's a reorder/delete UI, not a browsing one, so it didn't seem like the
   right fit, but it's a small follow-up if wanted.

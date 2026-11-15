@@ -1,3 +1,14 @@
+// Anything a person typed (a nickname, a message, a moderator's note) must go
+// through this before it is placed in email HTML — otherwise `<a href=…>` in a
+// message arrives as a live link in a mail from our own domain.
+export const escapeHtml = (value: string) =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
 // Shared HTML shell — plain inline-styled table layout (no external CSS,
 // since most email clients strip <style> tags or ignore classes). Mirrors
 // the app's rose/purple flat-design accent from apps/web/app/app.css.
@@ -17,7 +28,7 @@ export function emailLayout(title: string, bodyHtml: string, ctaUrl?: string, ct
             </tr>
             <tr>
               <td style="padding:24px 32px 8px 32px;">
-                <h1 style="font-size:18px;margin:0 0 16px 0;color:#171717;">${title}</h1>
+                <h1 style="font-size:18px;margin:0 0 16px 0;color:#171717;">${escapeHtml(title)}</h1>
                 <div style="font-size:14px;line-height:1.6;color:#404040;">${bodyHtml}</div>
               </td>
             </tr>

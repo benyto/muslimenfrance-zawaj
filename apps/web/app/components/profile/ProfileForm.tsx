@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useBlocker } from "react-router";
+import { Link, useBlocker } from "react-router";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -451,6 +451,13 @@ export function ProfileForm({ completion }: { completion: number }) {
             />
           )}
         </Field>
+        <p className="text-xs text-muted sm:col-span-2">
+          Pour savoir comment vos données sont utilisées, consultez notre{" "}
+          <Link to="/confidentialite" className="underline underline-offset-2 hover:text-ink">
+            politique de confidentialité
+          </Link>
+          .
+        </p>
       </Section>
 
       {/* position:fixed, not sticky — this form sits in a plain flex-col

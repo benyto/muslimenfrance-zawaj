@@ -16,6 +16,7 @@ import {
 import { supabase } from "~/lib/supabase-client";
 import { useTheme, type ThemePreference } from "~/lib/theme";
 import { Card, Badge, Chip, Skeleton } from "~/components/ui/primitives";
+import { LegalLinks } from "~/components/legal/legal";
 import { Button } from "~/components/ui/button";
 import { Checkbox, Field, Select } from "~/components/ui/form";
 import { ConfirmDialog } from "~/components/ui/sheet";
@@ -341,6 +342,15 @@ function AppearanceSection() {
   );
 }
 
+function LegalSection() {
+  return (
+    <Card className="p-6">
+      <SectionHeading>Informations légales</SectionHeading>
+      <LegalLinks className="text-sm" />
+    </Card>
+  );
+}
+
 export default function Settings() {
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
@@ -353,6 +363,7 @@ export default function Settings() {
       <SubscriptionSection />
       <IgnoredProfiles />
       <PrivacySection />
+      <LegalSection />
     </div>
   );
 }

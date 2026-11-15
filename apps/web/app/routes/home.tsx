@@ -4,6 +4,7 @@ import { useSession } from "~/lib/auth/useSession";
 import { StarMark } from "~/components/ui/star";
 import { ButtonLink } from "~/components/ui/button";
 import { Card } from "~/components/ui/primitives";
+import { LegalLinks } from "~/components/legal/legal";
 
 const valueProps = [
   {
@@ -54,9 +55,12 @@ export default function Home() {
         </div>
       </div>
 
-      <p className="mt-16 text-xs text-muted">
-        © {new Date().getFullYear()} Rencontre — une communauté muslimenfrance
-      </p>
+      <div className="mt-16 flex flex-col items-center gap-2">
+        <LegalLinks className="justify-center" />
+        <p className="text-xs text-muted">
+          © {new Date().getFullYear()} Rencontre — une communauté muslimenfrance
+        </p>
+      </div>
     </div>
   );
 }
