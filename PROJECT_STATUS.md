@@ -338,25 +338,39 @@ consumer mediator. Anything still `null` shows as a highlighted
 build: check each page before launch.
 
 **Before launch** (found while checking the text against the code):
-1. **Account deletion leaves personal data in the moderation audit log.**
-   `admin_audit_log` keeps a full profile snapshot (`before`/`after`) per
-   moderation decision and is not touched when an account is deleted. Either
-   erase/redact those entries on deletion or store only status fields.
-2. **Consent wording** (profile form) mentions religion and practice but not
+1. **Consent wording** (profile form) mentions religion and practice but not
    **origin ethnique** (`ethnicity`), which is also special-category data
    (GDPR art. 9). Update the label and re-collect consent from existing
    members.
-3. **Checkout** shows no acceptance of the terms and no withdrawal-right
+2. **Checkout** shows no acceptance of the terms and no withdrawal-right
    wording. For consumers in France, a paid subscription needs the 14-day
    withdrawal information and, if service starts immediately, the member's
    express request/waiver (Stripe `consent_collection` / `custom_text`).
-4. **Moderators can read every conversation** (RLS "admin select"). The
+3. **Moderators can read every conversation** (RLS "admin select"). The
    policy discloses it, limited to reports and security; decide whether to
    restrict it to reported conversations in practice or in the database.
-5. **Inactive accounts** are never purged and no retention period is defined;
-   neither is the audit-log or backup retention. The policy has placeholders.
-6. New-message e-mails are **on by default** (opt-out), so the policy bases
+4. **Inactive accounts** are never purged and no retention period is defined;
+   neither is the audit-log, reports-about-a-member or backup retention. The
+   policy has placeholders. (Reports filed *about* someone are deliberately
+   kept after their account is deleted, for safety and legal claims, and the
+   policy says so — decide how long.)
+5. New-message e-mails are **on by default** (opt-out), so the policy bases
    them on legitimate interest rather than consent.
+
+### Audit log holds no personal data (done — migration needs applying)
+
+`admin_audit_log` used to store a full snapshot of the profile / photo / report
+row for every moderation decision, and it survived account deletion. Entries
+now record only the decision: actor, action, target id, timestamp and the
+status values it moved between (`moderation_status` / `status`, plus
+`bio_changed` / `looking_for_changed` for text reviews). Migration
+`20261116120000_audit_log_minimal.sql` scrubs existing rows and adds a CHECK
+(`admin_audit_log_details_minimal`) so the database refuses anything else for
+member-related entries — widening it takes a migration, not a code slip.
+Subscription-product entries keep full before/after (pricing, not personal).
+After deletion the remaining rows point at an id that no longer exists.
+`writeAuditLog` in `routes/admin.ts` takes a narrow `AuditState`;
+`test/audit-log.test.ts` covers it, including the post-deletion state.
 
 ### Webhook event cleanup (done — migration needs applying)
 

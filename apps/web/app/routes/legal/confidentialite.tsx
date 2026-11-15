@@ -37,7 +37,7 @@ export default function Privacy() {
             ["Échanges", "Vos messages, vos favoris, les profils que vous ignorez, vos demandes d’accès à des photos privées, vos signalements."],
             ["Présence", "Votre dernière connexion, affichée aux autres uniquement si vous avez activé le statut en ligne."],
             ["Abonnement", "Identifiants client et abonnement Stripe, statut et dates de l’abonnement. Votre carte bancaire est saisie chez Stripe ; nous n’y avons pas accès."],
-            ["Modération et sécurité", "Décisions de modération, motifs, signalements, journal des actions de l’équipe, journaux techniques de nos prestataires (dont l’adresse IP)."],
+            ["Modération et sécurité", "Décisions de modération et leurs motifs, signalements, journal des actions de l’équipe (qui a pris quelle décision, quand, sans reprendre le contenu de votre profil), journaux techniques de nos prestataires (dont l’adresse IP)."],
           ]}
         />
         <P>
@@ -123,7 +123,23 @@ export default function Privacy() {
             ["Comptes inactifs", <Fill key="inactive" label="durée avant suppression d’un compte inactif" />],
             ["Données de paiement et factures", "Conservées par Stripe et par nous pour la durée légale de conservation comptable (10 ans)."],
             ["Notifications techniques de paiement (identifiants d’événements Stripe)", "Supprimées automatiquement après 90 jours."],
-            ["Journal des actions de modération", <Fill key="audit" label="durée de conservation du journal de modération" />],
+            [
+              "Journal des actions de modération",
+              <>
+                Il ne conserve que la décision, sa date, l’identifiant technique concerné et le membre de l’équipe qui
+                l’a prise — jamais le contenu de votre profil. Après la suppression de votre compte, cet identifiant ne
+                permet plus de vous retrouver. Durée :{" "}
+                <Fill key="audit" label="durée de conservation du journal de modération" />.
+              </>,
+            ],
+            [
+              "Signalements dont vous faites l’objet",
+              <>
+                Les signalements faits à votre sujet par d’autres membres peuvent être conservés après la suppression de
+                votre compte pour protéger la communauté et défendre des droits en justice. Durée :{" "}
+                <Fill key="reports" label="durée de conservation des signalements" />.
+              </>,
+            ],
             ["Sauvegardes de notre prestataire", <Fill key="backups" label="durée des sauvegardes" />],
           ]}
         />

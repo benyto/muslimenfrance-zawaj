@@ -47,25 +47,68 @@ const subscriptionProductSchema = z.object({
   enabled: z.boolean().default(false),
 });
 
-async function writeAuditLog(params: {
+// What an audit entry may record about a decision on a member's profile, photo
+// or report: the state it moved between, never the content. A snapshot of the
+// row would put the member's data (nickname, birth date, texts, a reporter's
+// description…) into a log that outlives their account. The database enforces
+// the same list (admin_audit_log_details_minimal), so widening it is a
+// deliberate migration, not a one-line slip.
+type AuditState = {
+  moderation_status?: string;
+  status?: string;
+  bio_changed?: boolean;
+  looking_for_changed?: boolean;
+};
+
+async function insertAuditRow(row: {
   adminUserId: string;
   action: string;
   targetType: "profile" | "photo" | "report" | "subscription" | "user";
+  targetId: string;
+  before?: Json;
+  after?: Json;
+  ip?: string;
+}) {
+  const { error } = await supabaseAdmin.from("admin_audit_log").insert({
+    admin_user_id: row.adminUserId,
+    action: row.action,
+    target_type: row.targetType,
+    target_id: row.targetId,
+    before: row.before ?? null,
+    after: row.after ?? null,
+    ip_address: row.ip ?? null,
+  });
+  if (error) console.error("Failed to write admin_audit_log", error);
+}
+
+async function writeAuditLog(params: {
+  adminUserId: string;
+  action: string;
+  targetType: "profile" | "photo" | "report" | "user";
+  targetId: string;
+  before?: AuditState;
+  after?: AuditState;
+  ip?: string;
+}) {
+  await insertAuditRow(params);
+}
+
+// Pricing configuration is business data, not personal data, so its full
+// before/after is kept.
+async function writeProductAuditLog(params: {
+  adminUserId: string;
+  action: string;
   targetId: string;
   before?: unknown;
   after?: unknown;
   ip?: string;
 }) {
-  const { error } = await supabaseAdmin.from("admin_audit_log").insert({
-    admin_user_id: params.adminUserId,
-    action: params.action,
-    target_type: params.targetType,
-    target_id: params.targetId,
-    before: (params.before as Json) ?? null,
-    after: (params.after as Json) ?? null,
-    ip_address: params.ip ?? null,
+  await insertAuditRow({
+    ...params,
+    targetType: "subscription",
+    before: params.before as Json,
+    after: params.after as Json,
   });
-  if (error) console.error("Failed to write admin_audit_log", error);
 }
 
 export async function adminRoutes(fastify: FastifyInstance) {
@@ -115,8 +158,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
         action: `profile_${parsed.data.status}`,
         targetType: "profile",
         targetId: request.params.id,
-        before,
-        after,
+        before: { moderation_status: before.moderation_status },
+        after: { moderation_status: after.moderation_status },
         ip: request.ip,
       });
 
@@ -188,13 +231,11 @@ export async function adminRoutes(fastify: FastifyInstance) {
         action: `profile_texts_${parsed.data.decision}`,
         targetType: "profile",
         targetId: request.params.id,
-        before: {
-          bio: before.bio,
-          looking_for: before.looking_for,
-          bio_pending: before.bio_pending,
-          looking_for_pending: before.looking_for_pending,
+        // Which fields were up for review, not what they said.
+        after: {
+          bio_changed: before.bio_pending != null,
+          looking_for_changed: before.looking_for_pending != null,
         },
-        after: { bio: after.bio, looking_for: after.looking_for },
         ip: request.ip,
       });
 
@@ -252,8 +293,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
         action: `photo_${parsed.data.status}`,
         targetType: "photo",
         targetId: request.params.id,
-        before,
-        after,
+        before: { moderation_status: before.moderation_status },
+        after: { moderation_status: after.moderation_status },
         ip: request.ip,
       });
 
@@ -316,8 +357,8 @@ export async function adminRoutes(fastify: FastifyInstance) {
         action: `report_${parsed.data.status}`,
         targetType: "report",
         targetId: request.params.id,
-        before,
-        after,
+        before: { status: before.status },
+        after: { status: after.status },
         ip: request.ip,
       });
 
@@ -361,10 +402,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
         return reply.code(400).send({ error: error.message });
       }
 
-      await writeAuditLog({
+      await writeProductAuditLog({
         adminUserId: request.user!.id,
         action: "subscription_product_created",
-        targetType: "subscription",
         targetId: after.id,
         after,
         ip: request.ip,
@@ -426,10 +466,9 @@ export async function adminRoutes(fastify: FastifyInstance) {
         return reply.code(400).send({ error: error.message });
       }
 
-      await writeAuditLog({
+      await writeProductAuditLog({
         adminUserId: request.user!.id,
         action: "subscription_product_updated",
-        targetType: "subscription",
         targetId: request.params.id,
         before,
         after,

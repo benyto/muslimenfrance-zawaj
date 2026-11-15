@@ -984,6 +984,7 @@ export type Database = {
           total_count: number
         }[]
       }
+      audit_details_are_minimal: { Args: { details: Json }; Returns: boolean }
       can_read_photo_object: {
         Args: { p_object_name: string }
         Returns: boolean
