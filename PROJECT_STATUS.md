@@ -329,6 +329,9 @@ server-only tables.
 - **CI**: the `test` job in `.github/workflows/ci.yml` does
   `supabase start` (migrations replay from scratch), lifts the local auth
   throttle on the runner only, builds and starts the API, and runs the suite.
+- `TEST_STRIPE_KEY_IS_PLACEHOLDER=yes` enables the test for "account deletion
+  is refused (502) and nothing is removed while Stripe is unreachable"; set it
+  only when the API runs with a placeholder `STRIPE_SECRET_KEY` (CI does).
 - **Not covered**: Stripe events that read back from Stripe (checkout /
   subscription updated|deleted / invoice) need the real Stripe API; the
   browser UI (no component or e2e tests yet).

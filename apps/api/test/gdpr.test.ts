@@ -136,6 +136,35 @@ describe("account deletion", () => {
   });
 });
 
+describe("account deletion while Stripe is unreachable", {
+  // Needs an API whose Stripe key does not work (CI uses a placeholder). With a
+  // real key Stripe would answer "no such subscription" for the made-up id and
+  // the deletion would — correctly — go ahead, so this cannot run there.
+  skip: process.env.TEST_STRIPE_KEY_IS_PLACEHOLDER !== "yes" && "set TEST_STRIPE_KEY_IS_PLACEHOLDER=yes when the API runs with a placeholder STRIPE_SECRET_KEY",
+}, () => {
+  let member: Member;
+  after(cleanup);
+
+  it("refuses, and keeps the account, its data and its photos", async () => {
+    member = await createMember({ label: "stuck" });
+    await grantSubscription(member); // active: has to be cancelled on Stripe before deleting
+    const photo = await uploadPhoto(member, await jpeg());
+    assert.equal(photo.status, 200);
+
+    const res = await api(member, "POST", "/gdpr/delete");
+    assert.equal(res.status, 502, JSON.stringify(res.body));
+
+    // Nothing was removed: the member can retry once Stripe is back.
+    const user = await admin.auth.admin.getUserById(member.userId);
+    assert.ok(user.data.user, "account still exists");
+    const { data: profile } = await admin.from("profiles").select("id").eq("id", member.profileId);
+    assert.equal(profile!.length, 1);
+    assert.equal(await storedFiles(photo.body.storage_key), "display.webp,thumb.webp");
+    const { data: subscription } = await admin.from("user_subscriptions").select("status").eq("user_id", member.userId);
+    assert.deepEqual(subscription!.map((r) => r.status), ["active"], "the subscription record is untouched");
+  });
+});
+
 describe("deleting a moderator", () => {
   it("keeps what they moderated and the audit trail, without their identity", async () => {
     const moderator = await createMember({ label: "mod-del", role: "moderator" });

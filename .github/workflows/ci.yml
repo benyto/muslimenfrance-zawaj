@@ -113,6 +113,9 @@ jobs:
         env:
           TEST_API_URL: http://localhost:8787
           TEST_STRIPE_WEBHOOK_SECRET: whsec_ci_tests
+          # The API above runs with a placeholder Stripe key; this enables the
+          # test for "Stripe unreachable during account deletion".
+          TEST_STRIPE_KEY_IS_PLACEHOLDER: "yes"
         run: npm test -w @rencontre/api
 
       - name: Diagnostics
