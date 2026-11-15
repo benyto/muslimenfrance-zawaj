@@ -94,7 +94,12 @@ describe("checkout consent", () => {
     assert.equal(exported.body.subscriptionConsents.length, 1);
     assert.equal(exported.body.subscriptionConsents[0].terms_version, TERMS_VERSION);
 
-    assert.equal((await api(member, "POST", "/gdpr/delete")).status, 200);
+    // Removed with the account. Deleted directly here rather than through
+    // /gdpr/delete: that route now asks Stripe about each recorded checkout
+    // session (to close it), which a made-up session id cannot satisfy — the
+    // route's own behaviour is covered, with Stripe mocked, in
+    // account-deletion-hardening.test.ts.
+    assert.ifError((await admin.auth.admin.deleteUser(member.userId)).error);
     assert.equal((await consentRows()).length, 0, "erased with the account");
   });
 });

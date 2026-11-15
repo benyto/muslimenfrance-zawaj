@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient, type InfiniteData, type QueryClient } from "@tanstack/react-query";
 import type { Database } from "@rencontre/shared";
 import { supabase } from "~/lib/supabase-client";
 
@@ -9,6 +9,21 @@ type Message = Database["public"]["Tables"]["messages"]["Row"];
 type PageParam = { before: string; beforeId: string } | undefined;
 
 const PAGE_SIZE = 30;
+
+// Puts a message at the end of its thread's newest page — the one place a new
+// message belongs, however many older pages have been loaded. Used by the
+// thread's own realtime subscription and by the send mutation, which can both
+// deliver the same message, so it is added once: skipped if any loaded page
+// already has it. A thread that isn't in the cache is left alone; it loads
+// fresh when opened.
+export function appendMessage(queryClient: QueryClient, message: Message) {
+  queryClient.setQueryData<InfiniteData<Message[], PageParam>>(["messages", message.conversation_id], (old) => {
+    if (!old || old.pages.length === 0) return old;
+    if (old.pages.some((page) => page.some((m) => m.id === message.id))) return old;
+    const [newestPage, ...olderPages] = old.pages;
+    return { ...old, pages: [[...newestPage, message], ...olderPages] };
+  });
+}
 
 // Paginated rather than one unbounded fetch of the whole conversation — the
 // old version had no limit at all, fine for the ~15-message migrated
@@ -57,15 +72,7 @@ export function useConversationMessages(conversationId: string | null | undefine
       .on(
         "postgres_changes",
         { event: "INSERT", schema: "public", table: "messages", filter: `conversation_id=eq.${conversationId}` },
-        (payload) => {
-          const incoming = payload.new as Message;
-          queryClient.setQueryData<InfiniteData<Message[], PageParam>>(queryKey, (old) => {
-            if (!old || old.pages.length === 0) return old;
-            const [newestPage, ...olderPages] = old.pages;
-            if (newestPage.some((m) => m.id === incoming.id)) return old;
-            return { ...old, pages: [[...newestPage, incoming], ...olderPages] };
-          });
-        }
+        (payload) => appendMessage(queryClient, payload.new as Message)
       )
       .subscribe();
 

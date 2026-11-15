@@ -285,7 +285,7 @@ export default function ChatWithProfile() {
         open={showBlockConfirm}
         onOpenChange={setShowBlockConfirm}
         title="Bloquer ce profil ?"
-        description={`Vous ne verrez plus les messages de ${otherProfile?.nickname ?? "ce membre"} ni son profil dans vos recherches.`}
+        description={`Vous ne verrez plus les messages de ${otherProfile?.nickname ?? "ce membre"} ni son profil dans vos recherches. Ce membre n’en sera pas informé : il pourra toujours voir votre profil et vous écrire, mais vous ne verrez pas ses messages.`}
         confirmLabel="Bloquer"
         destructive
         loading={ignoreProfile.isPending}

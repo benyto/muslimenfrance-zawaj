@@ -157,8 +157,9 @@ describe("account deletion while Stripe is unreachable", {
     // Nothing was removed: the member can retry once Stripe is back.
     const user = await admin.auth.admin.getUserById(member.userId);
     assert.ok(user.data.user, "account still exists");
-    const { data: profile } = await admin.from("profiles").select("id").eq("id", member.profileId);
+    const { data: profile } = await admin.from("profiles").select("id, deleted_at").eq("id", member.profileId);
     assert.equal(profile!.length, 1);
+    assert.equal(profile![0].deleted_at, null, "the account is open again, not left half-closed");
     assert.equal(await storedFiles(photo.body.storage_key), "display.webp,thumb.webp");
     const { data: subscription } = await admin.from("user_subscriptions").select("status").eq("user_id", member.userId);
     assert.deepEqual(subscription!.map((r) => r.status), ["active"], "the subscription record is untouched");

@@ -30,11 +30,15 @@ export async function photoRoutes(fastify: FastifyInstance) {
     async (request, reply) => {
       const { data: profile } = await supabaseAdmin
         .from("profiles")
-        .select("id")
+        .select("id, deleted_at")
         .eq("user_id", request.user!.id)
         .maybeSingle();
       if (!profile) {
         return reply.code(403).send({ error: "Créez votre profil avant d'ajouter des photos" });
+      }
+      // The account is being deleted (see /gdpr/delete): nothing new may attach to it.
+      if (profile.deleted_at) {
+        return reply.code(409).send({ error: "Votre compte est en cours de suppression" });
       }
 
       const { count } = await supabaseAdmin

@@ -346,6 +346,55 @@ build: check each page before launch.
 2. New-message e-mails are **on by default** (opt-out), so the policy bases
    them on legitimate interest rather than consent.
 
+### Audit V2 follow-up (`security-v2.md`, `architecture-v2.md`, `performance-v2.md`)
+
+Each finding was checked against the code before acting; all of those below were
+real.
+
+**Fixed**
+- **SEC-V2-01** — `/gdpr/delete` ignored the error of its profile read and would
+  have treated it as "no profile", deleted the account and orphaned its photos. It
+  now stops with a 500 until the inventory is known.
+- **SEC-V2-02** — deletion did not close the account against concurrent writes. It
+  now marks the profile deleted first (uploads and checkouts then answer 409;
+  messages were already refused), expires the member's open Stripe checkout
+  sessions and cancels a subscription one of them created meanwhile, removes photo
+  files by **folder** (the real inventory, not the rows) before and after deleting
+  the account, and **restores the marker** and marks the request `failed` if any
+  step fails. Residual: an upload that passed its check before the marker and
+  finishes after the final sweep could leave files — a window of milliseconds.
+- **ARC-V2-02** — two different events about one subscription could write in the
+  wrong order. Projection now re-reads Stripe after writing and writes again if it
+  moved, so the last writer ends on the latest state (`projectSubscription`).
+- **ARC-V2-01** — checkout could hand out several payable links. It now uses a
+  Stripe idempotency key (same request within 30 min → same session), expires
+  links after 30 minutes, expires the member's other open sessions, and no longer
+  ignores read errors. **Verified in CI only** (`checkout-links.test.ts` needs a paid
+  plan enabled, which would switch the paywall on for a shared database); it has
+  not been run against a real Stripe account either — do the test-mode checkout.
+- **PERF-V2-01** — every incoming message refetched all loaded pages of every
+  thread. It now only marks that thread stale; sending adds the server's response
+  to the thread with de-duplication instead of refetching. Checked in the browser:
+  a sent and two received messages each appear once, with no reads of `messages`.
+- **SEC-V2-03** — the "Bloquer" confirmation now says it is one-way (the other
+  member is not told and can still see the profile and write). The label is
+  unchanged; renaming it, or making blocking mutual, is a product decision.
+
+**New test pattern**: `test/helpers/app.ts` runs the real API *inside* the test
+process against the real Supabase stack with **Stripe mocked** — so failures can be
+injected on purpose (`account-deletion-hardening`, `stripe-projection`,
+`checkout-links`). It forces a placeholder Stripe key; never a real one.
+
+**Not done, deliberately**
+- **ARC-V2-04** (decision and audit entry not atomic) — a real gap, fixed properly
+  by moving each moderation action into one SQL function; a larger refactor, P2.
+- **ARC-V2-03** (emails not durable) — needs a job table; best-effort is a choice
+  until e-mail matters more.
+- **PERF-V2-02…05** (inbox pagination, discovery cursor, export memory, image
+  concurrency) — measure first, as the audit itself says.
+- **UploadThing purge** — confirm the old files and URLs are gone; needs an
+  inventory from the UploadThing dashboard, not code.
+
 ### Moderators can no longer browse conversations (done — migration needs applying)
 
 Two RLS policies used to give every moderator and admin SELECT on all

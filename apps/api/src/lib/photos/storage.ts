@@ -43,3 +43,31 @@ export async function removePhotoObjects(storageKeys: string[]): Promise<{ error
     .remove(storageKeys.flatMap(photoObjectPaths));
   return { error };
 }
+
+/**
+ * Removes every object under a member's folder, whatever the database says.
+ *
+ * The rows in profile_photos are the usual record of what a member has stored,
+ * but they can disagree with Storage — an upload racing an account deletion
+ * writes its files before its row. Listing the folder is the authoritative
+ * inventory, so deletion sweeps it (before and after the account is removed).
+ */
+export async function removeAllPhotoObjects(profileId: string): Promise<{ error: Error | null }> {
+  const bucket = supabaseAdmin.storage.from(PHOTO_BUCKET);
+  const paths: string[] = [];
+
+  for (let offset = 0; ; offset += 1000) {
+    const { data: folders, error } = await bucket.list(profileId, { limit: 1000, offset });
+    if (error) return { error };
+    for (const folder of folders ?? []) {
+      const { data: files, error: filesError } = await bucket.list(`${profileId}/${folder.name}`, { limit: 100 });
+      if (filesError) return { error: filesError };
+      paths.push(...(files ?? []).map((file) => `${profileId}/${folder.name}/${file.name}`));
+    }
+    if ((folders ?? []).length < 1000) break;
+  }
+
+  if (paths.length === 0) return { error: null };
+  const { error } = await bucket.remove(paths);
+  return { error };
+}

@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { createHash } from "node:crypto";
 import type Stripe from "stripe";
 import { CHECKOUT_WORDING_VERSION, TERMS_VERSION, checkoutConsentSchema } from "@rencontre/shared";
 import { env } from "../env.js";
@@ -84,6 +85,38 @@ async function currentSubscription(snapshot: Stripe.Subscription) {
   }
 }
 
+// The fields our table mirrors; two reads that agree on these are the same
+// state as far as we are concerned.
+const stateOf = (subscription: Stripe.Subscription) =>
+  JSON.stringify([
+    subscription.status,
+    subscription.cancel_at_period_end,
+    subscription.trial_end,
+    subscription.items.data[0]?.current_period_start,
+    subscription.items.data[0]?.current_period_end,
+  ]);
+
+// Reads the subscription from Stripe and writes it to our table — and then
+// checks that what was written is still what Stripe says.
+//
+// Events are claimed one by one (claim_webhook_event is per event id), so two
+// different events about the same subscription can run at the same time: A reads
+// "active", B reads "canceled" and writes it, and A then writes "active" over
+// it. Nothing here serialises them, so instead each writer re-reads after
+// writing and, if Stripe has moved on, writes again. Whoever finishes last has
+// read after every other write, so the table ends on the latest state.
+// (Bounded: a subscription that keeps changing is picked up by the next event.)
+async function projectSubscription(snapshot: Stripe.Subscription) {
+  let latest = await currentSubscription(snapshot);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await upsertSubscriptionFromStripe(latest);
+    const confirmed = await currentSubscription(latest);
+    if (stateOf(confirmed) === stateOf(latest)) return confirmed;
+    latest = confirmed;
+  }
+  return latest;
+}
+
 type DeferredEmail = () => Promise<unknown>;
 
 // Does the event's real work. Anything that goes wrong throws, so the caller
@@ -105,8 +138,7 @@ async function processStripeEvent(event: Stripe.Event): Promise<DeferredEmail[]>
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.subscription) {
-        const subscription = await stripe.subscriptions.retrieve(session.subscription as string);
-        await upsertSubscriptionFromStripe(subscription);
+        const subscription = await projectSubscription(await stripe.subscriptions.retrieve(session.subscription as string));
         const trialEnd = subscription.trial_end
           ? new Date(subscription.trial_end * 1000).toISOString()
           : null;
@@ -117,14 +149,11 @@ async function processStripeEvent(event: Stripe.Event): Promise<DeferredEmail[]>
       break;
     }
     case "customer.subscription.updated": {
-      await upsertSubscriptionFromStripe(
-        await currentSubscription(event.data.object as Stripe.Subscription),
-      );
+      await projectSubscription(event.data.object as Stripe.Subscription);
       break;
     }
     case "customer.subscription.deleted": {
-      const subscription = await currentSubscription(event.data.object as Stripe.Subscription);
-      await upsertSubscriptionFromStripe(subscription);
+      const subscription = await projectSubscription(event.data.object as Stripe.Subscription);
       emailTo(subscription.metadata.user_id, (who) =>
         subscriptionCanceledEmail({ nickname: who.nickname }),
       );
@@ -152,8 +181,7 @@ async function processStripeEvent(event: Stripe.Event): Promise<DeferredEmail[]>
       const subscriptionId =
         typeof subscriptionRef === "string" ? subscriptionRef : subscriptionRef?.id;
       if (subscriptionId) {
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-        await upsertSubscriptionFromStripe(subscription);
+        const subscription = await projectSubscription(await stripe.subscriptions.retrieve(subscriptionId));
         if (event.type === "invoice.payment_failed") {
           emailTo(subscription.metadata.user_id, (who) =>
             paymentFailedEmail({ nickname: who.nickname }),
@@ -177,6 +205,11 @@ const CHECKOUT_NOTICE =
   "Vous disposez de 14 jours pour vous rétracter ; si vous vous rétractez, vous paierez le service fourni jusqu’à votre demande. " +
   "L’abonnement se renouvelle automatiquement à chaque période jusqu’à sa résiliation, possible à tout moment depuis « Réglages ».";
 
+// A payment link is reused within this window and lives this long (Stripe's
+// minimum is 30 minutes).
+const CHECKOUT_WINDOW_MS = 30 * 60 * 1000;
+const CHECKOUT_LIFETIME_SECONDS = 30 * 60;
+
 // Checkout + portal — normal JSON bodies, both require a real session.
 export async function stripeRoutes(fastify: FastifyInstance) {
   fastify.post(
@@ -199,23 +232,38 @@ export async function stripeRoutes(fastify: FastifyInstance) {
 
       const db = request.supabase!;
 
-      const { data: myProfile } = await db
+      const { data: myProfile, error: profileError } = await db
         .from("profiles")
-        .select("id, gender")
+        .select("id, gender, deleted_at")
         .eq("user_id", request.user!.id)
         .maybeSingle();
+      if (profileError) {
+        request.log.error(profileError, "Failed to read the profile before checkout");
+        return reply.code(500).send({ error: "Impossible de démarrer l’abonnement pour le moment" });
+      }
       if (!myProfile) {
         return reply
           .code(403)
           .send({ error: "Créez votre profil avant de vous abonner" });
       }
+      // The account is being deleted (see /gdpr/delete): no new subscription.
+      if (myProfile.deleted_at) {
+        return reply.code(409).send({ error: "Votre compte est en cours de suppression" });
+      }
 
-      const { data: existing } = await db
+      // A failed read is not "no subscription": carrying on could sell a second
+      // subscription to someone who already has one.
+      const { data: existing, error: existingError } = await db
         .from("user_subscriptions")
         .select("status")
         .eq("user_id", request.user!.id)
         .in("status", ["trialing", "active"])
+        .limit(1)
         .maybeSingle();
+      if (existingError) {
+        request.log.error(existingError, "Failed to look up the existing subscription before checkout");
+        return reply.code(500).send({ error: "Impossible de démarrer l’abonnement pour le moment" });
+      }
       if (existing) {
         return reply
           .code(400)
@@ -225,13 +273,17 @@ export async function stripeRoutes(fastify: FastifyInstance) {
       // enabled=true is the only thing gating this select for other rows too
       // (RLS: "subscription_products select enabled"), so this naturally
       // returns nothing if the paywall is currently off for this audience.
-      const { data: product } = await db
+      const { data: product, error: productError } = await db
         .from("subscription_products")
         .select("*")
         .eq("enabled", true)
         .or(`audience.eq.all,audience.eq.${myProfile.gender}`)
         .limit(1)
         .maybeSingle();
+      if (productError) {
+        request.log.error(productError, "Failed to read the subscription product before checkout");
+        return reply.code(500).send({ error: "Impossible de démarrer l’abonnement pour le moment" });
+      }
       if (!product || !product.stripe_price_id) {
         return reply
           .code(400)
@@ -248,7 +300,23 @@ export async function stripeRoutes(fastify: FastifyInstance) {
         .maybeSingle();
       customerId = priorSub?.stripe_customer_id ?? undefined;
 
-      const session = await stripe.checkout.sessions.create({
+      // One live payment link per member, not one per click. Two requests (a
+      // double click, two tabs, a retry after a lost response) must not each end
+      // up with a payable session — both could be paid, and the member would be
+      // subscribed, and billed, twice.
+      //   - The idempotency key makes a repeat of the same request, within the
+      //     same half hour, return the SAME session instead of creating another.
+      //     It also covers two requests arriving together: Stripe lets one
+      //     through and answers the other with the same result (or a retryable
+      //     "in use" error, handled below).
+      //   - The session expires after 30 minutes (Stripe's minimum), so an unused
+      //     link does not stay payable for a day.
+      //   - Any OTHER open session of this member is expired after creating this
+      //     one (see below).
+      // The key hashes the parameters, so a change in them (say, the member got
+      // a Stripe customer in between) means a new key rather than Stripe
+      // rejecting a "different request with the same key".
+      const params: Stripe.Checkout.SessionCreateParams = {
         mode: "subscription",
         customer: customerId,
         customer_email: customerId ? undefined : request.user!.email,
@@ -268,7 +336,27 @@ export async function stripeRoutes(fastify: FastifyInstance) {
         custom_text: { submit: { message: CHECKOUT_NOTICE } },
         success_url: `${env.SITE_URL}/settings?checkout=success`,
         cancel_url: `${env.SITE_URL}/settings?checkout=cancelled`,
-      });
+      };
+      const slot = Math.floor(Date.now() / CHECKOUT_WINDOW_MS);
+      const idempotencyKey = `checkout:${request.user!.id}:${slot}:${createHash("sha256")
+        .update(JSON.stringify(params))
+        .digest("hex")
+        .slice(0, 24)}`;
+
+      let session: Stripe.Checkout.Session;
+      try {
+        session = await stripe.checkout.sessions.create(
+          { ...params, expires_at: Math.floor(Date.now() / 1000) + CHECKOUT_LIFETIME_SECONDS },
+          { idempotencyKey }
+        );
+      } catch (err) {
+        request.log.error(err, "Failed to create the Stripe checkout session");
+        // Another request with the same key is still being processed.
+        if ((err as { code?: string }).code === "idempotency_key_in_use") {
+          return reply.code(409).send({ error: "Un paiement est déjà en cours de préparation, réessayez dans un instant." });
+        }
+        return reply.code(502).send({ error: "Impossible de démarrer l’abonnement pour le moment. Réessayez dans un instant." });
+      }
 
       // The proof of consent. If it cannot be kept, the member does not get the
       // payment link: better to ask them to retry than to take a subscription
@@ -282,10 +370,31 @@ export async function stripeRoutes(fastify: FastifyInstance) {
         accepted_terms: true,
         waived_withdrawal: true,
       });
-      if (consentError) {
+      // 23505: the same session again (an idempotent repeat) — already recorded.
+      if (consentError && consentError.code !== "23505") {
         request.log.error(consentError, "Failed to record subscription consent");
         await stripe.checkout.sessions.expire(session.id).catch(() => undefined);
         return reply.code(500).send({ error: "Impossible de démarrer l’abonnement pour le moment. Réessayez dans un instant." });
+      }
+
+      // Close every other payment link this member still has open, so only the
+      // one just returned can be paid. Best effort: failing to close an old link
+      // must not fail this request (the new link is fine), and every link
+      // expires on its own within 30 minutes anyway.
+      const { data: earlier } = await supabaseAdmin
+        .from("subscription_consents")
+        .select("stripe_checkout_session_id")
+        .eq("user_id", request.user!.id)
+        .neq("stripe_checkout_session_id", session.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+      for (const { stripe_checkout_session_id: oldId } of earlier ?? []) {
+        try {
+          const old = await stripe.checkout.sessions.retrieve(oldId);
+          if (old.status === "open") await stripe.checkout.sessions.expire(oldId);
+        } catch (err) {
+          request.log.warn(err, "Could not close an earlier checkout session");
+        }
       }
 
       return { url: session.url };

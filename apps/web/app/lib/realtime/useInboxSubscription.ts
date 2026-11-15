@@ -58,7 +58,15 @@ export function useInboxSubscription(
           if (ignoredIdsRef.current.has(message.sender_profile_id)) return;
 
           queryClient.invalidateQueries({ queryKey: ["conversations"] });
-          queryClient.invalidateQueries({ queryKey: ["messages"] });
+          // Only this thread, and only marked stale: an open thread already
+          // appends the message from its own subscription, so re-reading every
+          // loaded page of every thread for each incoming message was pure cost.
+          // Marking it stale (no refetch now) still makes a cached thread that
+          // is not open reload when it is next opened.
+          queryClient.invalidateQueries({
+            queryKey: ["messages", message.conversation_id],
+            refetchType: "none",
+          });
 
           if (message.sender_profile_id === pinnedProfileRef.current) return;
 

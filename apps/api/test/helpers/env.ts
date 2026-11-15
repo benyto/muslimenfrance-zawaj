@@ -20,7 +20,11 @@ export const env = {
   supabaseUrl: need("TEST_SUPABASE_URL"),
   anonKey: need("TEST_SUPABASE_ANON_KEY"),
   serviceKey: need("TEST_SUPABASE_SERVICE_KEY"),
-  apiUrl: process.env.TEST_API_URL ?? "http://localhost:8787",
+  // Read at call time: a test that runs the API in-process (helpers/app.ts)
+  // points this at its own server after the helpers have been imported.
+  get apiUrl() {
+    return process.env.TEST_API_URL ?? "http://localhost:8787";
+  },
   // Must equal the API's STRIPE_WEBHOOK_SECRET so signed test events verify.
   webhookSecret: process.env.TEST_STRIPE_WEBHOOK_SECRET ?? "",
 };
