@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useBlocker } from "react-router";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -40,7 +40,7 @@ import { BirthDateInput } from "~/components/ui/date-picker";
 import { StarSpinner } from "~/components/ui/star";
 import { ProgressBar } from "~/components/ui/primitives";
 import { Field, Input, Select, Textarea, Checkbox } from "~/components/ui/form";
-import { ConfirmDialog } from "~/components/ui/sheet";
+import { ConfirmDialog, InfoDialog } from "~/components/ui/sheet";
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -59,6 +59,7 @@ export function ProfileForm({ completion }: { completion: number }) {
   const { data: profile, isLoading: profileLoading } = useMyProfile();
   const upsert = useUpsertProfile();
   const toast = useToast();
+  const [showPendingNotice, setShowPendingNotice] = useState(false);
 
   const {
     register,
@@ -118,7 +119,13 @@ export function ProfileForm({ completion }: { completion: number }) {
         // No manual reset needed here — a successful save invalidates the
         // my-profile query, which reruns the effect above with fresh values
         // and clears isDirty as a side effect of that reset() call.
-        onSuccess: () => toast({ tone: "success", title: "Profil enregistré" }),
+        onSuccess: (saved) => {
+          // A toast is easy to miss, and this changes what other members see —
+          // so when an edit is waiting for review the dialog replaces the toast
+          // (it also says the profile was saved, and a toast would sit on top of it).
+          if (saved.textsPending) setShowPendingNotice(true);
+          else toast({ tone: "success", title: "Profil enregistré" });
+        },
         onError: (error) =>
           toast({ tone: "error", title: "Échec de l'enregistrement", description: (error as Error).message }),
       }
@@ -187,15 +194,6 @@ export function ProfileForm({ completion }: { completion: number }) {
       </Section>
 
       <Section title="À propos de moi">
-        {(profile?.bio_pending != null || profile?.looking_for_pending != null) && (
-          <p
-            role="status"
-            className="rounded-xl bg-warning-soft px-3.5 py-2.5 text-sm text-warning sm:col-span-2"
-          >
-            Vos dernières modifications sont en attente de validation. Les autres membres continuent de voir
-            votre version précédente jusqu&apos;à son approbation.
-          </p>
-        )}
         <Field label="Parlez de vous" error={errors.bio?.message} full>
           {(props) => (
             <Textarea
@@ -502,6 +500,13 @@ export function ProfileForm({ completion }: { completion: number }) {
         cancelLabel="Continuer l'édition"
         destructive
         onConfirm={() => blocker.proceed?.()}
+      />
+
+      <InfoDialog
+        open={showPendingNotice}
+        onOpenChange={setShowPendingNotice}
+        title="Profil enregistré — validation en attente"
+        description="Vos dernières modifications sont en attente de validation. Les autres membres continuent de voir votre version précédente jusqu'à son approbation."
       />
     </form>
   );

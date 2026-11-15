@@ -127,3 +127,36 @@ export function ConfirmDialog({
     </Dialog.Root>
   );
 }
+
+// A message the person must see and acknowledge — one button, nothing to decide.
+// For things a toast would let them miss.
+export function InfoDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  acknowledgeLabel = "J'ai compris",
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  title: string;
+  description: string;
+  acknowledgeLabel?: string;
+}) {
+  return (
+    <Dialog.Root open={open} onOpenChange={onOpenChange}>
+      <Dialog.Portal>
+        <Dialog.Overlay className="anim-fade fixed inset-0 z-40 bg-ink/40 backdrop-blur-sm" />
+        <Dialog.Content className="anim-rise fixed left-1/2 top-1/2 z-50 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line bg-raised p-6 shadow-2xl">
+          <Dialog.Title className="font-serif text-lg text-ink">{title}</Dialog.Title>
+          <Dialog.Description className="mt-2 text-sm text-muted">{description}</Dialog.Description>
+          <div className="mt-6 flex justify-end">
+            <Dialog.Close asChild>
+              <Button variant="primary">{acknowledgeLabel}</Button>
+            </Dialog.Close>
+          </div>
+        </Dialog.Content>
+      </Dialog.Portal>
+    </Dialog.Root>
+  );
+}

@@ -72,7 +72,18 @@ export function useUpsertProfile() {
         p_looking_for: input.lookingFor ?? "",
       });
       if (textsError) throw textsError;
-      return data;
+
+      // Whether an edit is now waiting for a moderator, so the form can say so.
+      const { data: pending, error: pendingError } = await supabase
+        .from("profiles")
+        .select("bio_pending, looking_for_pending")
+        .eq("user_id", session.user.id)
+        .single();
+      if (pendingError) throw pendingError;
+      return {
+        ...data,
+        textsPending: pending.bio_pending != null || pending.looking_for_pending != null,
+      };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["my-profile"] });
